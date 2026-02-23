@@ -1,0 +1,29 @@
+node_modules/
+dist/
+out/
+*.vsix
+.vscode-test/
+
+# WebView build
+webview-ui/dist/
+webview-ui/node_modules/
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+
+# Session notes
+SESSION_HANDOFF.md

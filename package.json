@@ -1,0 +1,130 @@
+{
+  "name": "excalidraw-copilot",
+  "displayName": "Excalidraw Copilot",
+  "description": "Natural language diagram generation with Excalidraw and LLM tool calling",
+  "version": "0.1.0",
+  "publisher": "nadomani",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "excalidraw",
+    "diagram",
+    "ai",
+    "llm",
+    "drawing"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "excalidraw-copilot.open",
+        "title": "Excalidraw Copilot: Open Canvas"
+      },
+      {
+        "command": "excalidraw-copilot.generate",
+        "title": "Excalidraw Copilot: Generate Diagram"
+      },
+      {
+        "command": "excalidraw-copilot.diagramFolder",
+        "title": "Excalidraw Copilot: Diagram This Folder"
+      },
+      {
+        "command": "excalidraw-copilot.diagramFile",
+        "title": "Excalidraw Copilot: Diagram This File"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "excalidraw-copilot.diagramFolder",
+          "when": "explorerResourceIsFolder",
+          "group": "navigation"
+        },
+        {
+          "command": "excalidraw-copilot.diagramFile",
+          "when": "!explorerResourceIsFolder",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "excalidraw-copilot.diagramFile",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Excalidraw Copilot",
+      "properties": {
+        "excalidraw-copilot.llmProvider": {
+          "type": "string",
+          "default": "copilot",
+          "enum": [
+            "copilot",
+            "openai",
+            "anthropic"
+          ],
+          "enumDescriptions": [
+            "Use GitHub Copilot (requires Copilot extension, no API key needed)",
+            "Use OpenAI API (requires API key)",
+            "Use Anthropic API (requires API key)"
+          ],
+          "description": "LLM provider to use for diagram generation"
+        },
+        "excalidraw-copilot.openaiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API key (only needed if provider is 'openai')"
+        },
+        "excalidraw-copilot.anthropicApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Anthropic API key (only needed if provider is 'anthropic')"
+        },
+        "excalidraw-copilot.model": {
+          "type": "string",
+          "default": "gpt-4o",
+          "description": "Model to use for generation (used with openai/anthropic providers)"
+        },
+        "excalidraw-copilot.maxIterations": {
+          "type": "number",
+          "default": 50,
+          "description": "Maximum tool call iterations per request"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "lint": "eslint src --ext ts",
+    "build:webview": "cd webview-ui && npm run build",
+    "build": "npm run build:webview && npm run compile",
+    "dev": "concurrently \"npm run watch\" \"cd webview-ui && npm run dev\""
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.54.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.2",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "openai": "^4.24.0"
+  }
+}

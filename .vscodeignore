@@ -1,0 +1,12 @@
+.vscode/**
+.vscode-test/**
+src/**
+webview-ui/src/**
+webview-ui/node_modules/**
+out/**
+node_modules/**
+.gitignore
+webpack.config.js
+tsconfig.json
+**/*.ts
+**/*.map
