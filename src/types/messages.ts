@@ -25,7 +25,9 @@ export type ExtensionToWebViewMessage =
   | { type: 'zoomToFit'; payload: Record<string, never> }
   | { type: 'getScreenshot'; payload: Record<string, never> }
   | { type: 'addElement'; payload: CanvasElement }
-  | { type: 'addElements'; payload: CanvasElement[] };
+  | { type: 'addElements'; payload: CanvasElement[] }
+  | { type: 'renderMermaid'; payload: { mermaidSyntax: string } }
+  | { type: 'showMermaidPreview'; payload: { mermaidSyntax: string } };
 
 // Messages FROM WebView TO extension
 export type WebViewToExtensionMessage =
@@ -35,6 +37,7 @@ export type WebViewToExtensionMessage =
   | { type: 'operationComplete'; payload: { success: boolean; elementId?: string; error?: string } }
   | { type: 'error'; payload: { message: string; details?: string } }
   | { type: 'userPrompt'; payload: { prompt: string } }
+  | { type: 'convertMermaidToExcalidraw'; payload: Record<string, never> }
   | { type: 'screenshot'; payload: { base64: string; mimeType: string; width: number; height: number } };
 
 // Payload types for tool operations

@@ -21,6 +21,12 @@ export interface DiagramResult {
   error?: string;
 }
 
+export interface MermaidDiagramResult {
+  mermaidSyntax: string;
+  thinkingOutput?: string;
+  error?: string;
+}
+
 // Thinking prompt - asks LLM to plan before drawing
 const THINKING_PROMPT = `You are a creative diagram designer creating BEAUTIFUL, DETAILED diagrams. Before creating, THINK and PLAN carefully.
 
@@ -199,6 +205,107 @@ function isArchitectureAnalysis(prompt: string): boolean {
   const markers = ['## Project Structure', '## Components', '## Detected Architecture', '## Dependencies', '## Internal Dependencies'];
   return markers.some(marker => prompt.includes(marker));
 }
+
+// Detect if a prompt is for architecture (broader than just folder analysis)
+function isArchitecturePrompt(prompt: string): boolean {
+  if (isArchitectureAnalysis(prompt)) return true;
+  const archKeywords = [
+    /architect/i, /system design/i, /infrastructure/i, /microservice/i,
+    /backend.*design/i, /design.*backend/i, /tech.*stack/i,
+    /deployment/i, /cloud.*architecture/i, /database.*design/i,
+  ];
+  return archKeywords.some(kw => kw.test(prompt));
+}
+
+// Mermaid generation prompt for architecture diagrams
+const MERMAID_THINKING_PROMPT = `You are an expert software architect creating a DETAILED, READABLE Mermaid flowchart.
+
+## CONSTRAINTS:
+1. **15-25 nodes** — show all important components, but still merge truly trivial items
+2. **Layer-to-layer connections ONLY** — arrows go DOWN between adjacent layers, NEVER skip layers
+3. **4-7 subgraphs** for logical grouping (can nest subgraphs for complex systems)
+4. **Max 4 dotted arrows** for async/optional paths
+5. **ONLY include technologies, components, and services that are EXPLICITLY mentioned in the user's analysis/description** — do NOT invent or assume technologies (no Redis, S3, Kafka, Nginx, etc. unless the user mentions them)
+
+## ANALYZE:
+1. What are the 4-7 main layers/groups?
+2. What are the 3-6 key components per layer?
+3. What are ALL the important data flows? (primary AND secondary paths)
+4. What are the async/background processes?
+
+Think step-by-step. Be THOROUGH — show the full picture. Base your diagram STRICTLY on the provided information.`;
+
+const MERMAID_GENERATION_PROMPT = `Now output the Mermaid flowchart diagram.
+
+## STRICT RULES:
+1. Start with \`flowchart TB\`
+2. **15-25 nodes** — show all important components, don't oversimplify
+3. **4-7 subgraphs** for layers (nest if needed for complex systems)
+4. Arrows go DOWN between adjacent layers — NO long cross-layer arrows
+5. **Keep labels SHORT** — max 3-4 words per node. Put details in parentheses: \`A["🚀 API Server (Express)"]\`
+6. Do NOT use \`<br/>\` or \`<br>\` in labels — keep everything on one line
+7. Arrow styles:
+   - \`-->\` solid (primary flow)
+   - \`-.->\` dotted (async, MAX 2)
+   - \`-->|"label"|\` for key labeled flows only
+8. **MUST include style directives** for EVERY node:
+   - Blue (services): \`style NODE fill:#dbeafe,stroke:#3b82f6,color:#1e40af\`
+   - Green (databases): \`style NODE fill:#dcfce7,stroke:#22c55e,color:#166534\`
+   - Amber (cache/queue): \`style NODE fill:#fef3c7,stroke:#f59e0b,color:#92400e\`
+   - Purple (auth/security): \`style NODE fill:#f3e8ff,stroke:#a855f7,color:#6b21a8\`
+   - Cyan (client apps): \`style NODE fill:#e0f2fe,stroke:#0ea5e9,color:#0c4a6e\`
+   - Pink (external): \`style NODE fill:#fce7f3,stroke:#ec4899,color:#9d174d\`
+
+## CRITICAL: Only diagram what was described — do NOT add technologies or components that are not in the user's input. If the user's project uses .NET, don't add Node.js. If there's no Redis, don't add Redis.
+
+## EXAMPLE (structure only — replace with ACTUAL project content):
+\`\`\`mermaid
+flowchart TB
+    subgraph Presentation["🌐 Presentation"]
+        APP["📱 Client App"]
+    end
+
+    subgraph Logic["⚙️ Business Logic"]
+        SVC1["🔧 Service A"]
+        SVC2["📋 Service B"]
+    end
+
+    subgraph Storage["💾 Storage"]
+        DB["🗄️ Database"]
+    end
+
+    APP --> SVC1
+    APP --> SVC2
+    SVC1 --> DB
+    SVC2 -.-> DB
+
+    style APP fill:#e0f2fe,stroke:#0ea5e9,color:#0c4a6e
+    style SVC1 fill:#dbeafe,stroke:#3b82f6,color:#1e40af
+    style SVC2 fill:#dbeafe,stroke:#3b82f6,color:#1e40af
+    style DB fill:#dcfce7,stroke:#22c55e,color:#166534
+\`\`\`
+
+OUTPUT ONLY the Mermaid code block. No explanation.`;
+
+const MERMAID_REFINEMENT_PROMPT = `You previously created this Mermaid diagram for: "{originalPrompt}"
+
+CURRENT MERMAID:
+\`\`\`mermaid
+{currentMermaid}
+\`\`\`
+
+THE USER WANTS CHANGES:
+"{userFeedback}"
+
+Apply the requested changes. Keep everything else the same unless the user asks to change it.
+
+Rules:
+- Keep existing node IDs stable
+- Add/remove/modify nodes as requested
+- Update connections if nodes change
+- Keep subgraph structure unless user asks to change it
+
+OUTPUT ONLY the updated Mermaid code block. No explanation.`;
 
 export class SemanticDiagramService {
   private vscodeModel: vscode.LanguageModelChat | null = null;
@@ -398,6 +505,7 @@ Then output an IMPROVED version of the graph JSON with:
 - Better color variety (use different semanticColors)
 - Additional helpful notes
 - Any missing steps
+- **If steps have sequential numbers in labels, ensure numbering is correct and contiguous after any additions or removals**
 
 OUTPUT ONLY THE IMPROVED JSON. No explanation.`;
 
@@ -553,6 +661,165 @@ OUTPUT ONLY THE IMPROVED JSON. No explanation.`;
     }
   }
 
+  // Check if a prompt should use the Mermaid pipeline
+  shouldUseMermaid(prompt: string): boolean {
+    return isArchitecturePrompt(prompt);
+  }
+
+  // Generate a Mermaid diagram (architecture path)
+  async generateMermaidDiagram(
+    userPrompt: string,
+    onProgress?: (stage: string) => void
+  ): Promise<MermaidDiagramResult> {
+    if (!this.vscodeModel) {
+      await this.initializeModel();
+      if (!this.vscodeModel) {
+        throw new Error('No Copilot language model available.');
+      }
+    }
+
+    // Pass 1: Thinking
+    onProgress?.('🧠 Planning architecture... (15-20 sec)');
+    this.log('\n=== MERMAID PASS 1: THINKING ===');
+
+    const thinkingMessages: vscode.LanguageModelChatMessage[] = [
+      vscode.LanguageModelChatMessage.User(MERMAID_THINKING_PROMPT),
+      vscode.LanguageModelChatMessage.User(`Create an architecture diagram for: ${userPrompt}`)
+    ];
+
+    const thinkingResponse = await this.vscodeModel.sendRequest(
+      thinkingMessages,
+      {},
+      new vscode.CancellationTokenSource().token
+    );
+
+    let thinkingOutput = '';
+    for await (const chunk of thinkingResponse.text) {
+      thinkingOutput += chunk;
+    }
+    this.log(`Mermaid thinking (${thinkingOutput.length} chars)`);
+
+    // Pass 2: Generate Mermaid
+    onProgress?.('🎨 Generating Mermaid diagram...');
+    this.log('\n=== MERMAID PASS 2: GENERATION ===');
+
+    const generationMessages: vscode.LanguageModelChatMessage[] = [
+      vscode.LanguageModelChatMessage.User(MERMAID_THINKING_PROMPT),
+      vscode.LanguageModelChatMessage.User(`Create an architecture diagram for: ${userPrompt}`),
+      vscode.LanguageModelChatMessage.Assistant(thinkingOutput),
+      vscode.LanguageModelChatMessage.User(MERMAID_GENERATION_PROMPT)
+    ];
+
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await this.vscodeModel.sendRequest(
+          generationMessages,
+          {},
+          new vscode.CancellationTokenSource().token
+        );
+
+        let fullText = '';
+        for await (const chunk of response.text) {
+          fullText += chunk;
+        }
+        this.log(`Mermaid output (${fullText.length} chars)`);
+
+        const mermaidSyntax = this.parseMermaidFromResponse(fullText);
+        this.log(`Parsed Mermaid:\n${mermaidSyntax.substring(0, 300)}...`);
+
+        return { mermaidSyntax, thinkingOutput };
+      } catch (e) {
+        lastError = e as Error;
+        this.log(`Mermaid attempt ${attempt + 1} failed: ${(e as Error).message}`);
+        if (attempt < 2) {
+          generationMessages.push(vscode.LanguageModelChatMessage.User(
+            `Error: ${(e as Error).message}. Output ONLY a valid Mermaid code block.`
+          ));
+        }
+      }
+    }
+
+    throw lastError || new Error('Failed to generate Mermaid diagram');
+  }
+
+  // Refine Mermaid diagram with user feedback
+  async refineMermaidWithFeedback(
+    originalPrompt: string,
+    currentMermaid: string,
+    userFeedback: string
+  ): Promise<string> {
+    if (!this.vscodeModel) {
+      await this.initializeModel();
+      if (!this.vscodeModel) {
+        throw new Error('No Copilot language model available.');
+      }
+    }
+
+    const prompt = MERMAID_REFINEMENT_PROMPT
+      .replace('{originalPrompt}', originalPrompt)
+      .replace('{currentMermaid}', currentMermaid)
+      .replace('{userFeedback}', userFeedback);
+
+    const messages: vscode.LanguageModelChatMessage[] = [
+      vscode.LanguageModelChatMessage.User(prompt)
+    ];
+
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await this.vscodeModel.sendRequest(
+          messages,
+          {},
+          new vscode.CancellationTokenSource().token
+        );
+
+        let fullText = '';
+        for await (const chunk of response.text) {
+          fullText += chunk;
+        }
+        this.log(`Mermaid refinement output (${fullText.length} chars)`);
+
+        return this.parseMermaidFromResponse(fullText);
+      } catch (e) {
+        lastError = e as Error;
+        this.log(`Mermaid refinement attempt ${attempt + 1} failed: ${(e as Error).message}`);
+        if (attempt < 2) {
+          messages.push(vscode.LanguageModelChatMessage.User(
+            `Error: ${(e as Error).message}. Output ONLY a valid Mermaid code block.`
+          ));
+        }
+      }
+    }
+
+    throw lastError || new Error('Failed to refine Mermaid diagram');
+  }
+
+  private parseMermaidFromResponse(text: string): string {
+    // Strategy 1: Extract from ```mermaid code block
+    const mermaidBlock = text.match(/```mermaid\s*([\s\S]*?)```/);
+    if (mermaidBlock) {
+      return mermaidBlock[1].trim();
+    }
+
+    // Strategy 2: Extract from generic code block
+    const codeBlock = text.match(/```\s*([\s\S]*?)```/);
+    if (codeBlock) {
+      const content = codeBlock[1].trim();
+      if (content.startsWith('flowchart') || content.startsWith('graph')) {
+        return content;
+      }
+    }
+
+    // Strategy 3: Look for flowchart/graph keyword in raw text
+    const flowchartMatch = text.match(/((?:flowchart|graph)\s+(?:TB|BT|LR|RL)[\s\S]*)/);
+    if (flowchartMatch) {
+      return flowchartMatch[1].trim();
+    }
+
+    throw new Error('Could not extract Mermaid syntax from LLM response');
+  }
+
   // Refine diagram based on user text feedback (no screenshot needed)
   async refineDiagramWithFeedback(
     originalPrompt: string,
@@ -584,6 +851,7 @@ Rules:
 - If user says "step X is wrong", fix that specific step
 - If user says "add X", add a new node with appropriate connections
 - If user says "remove X", remove that node and its connections
+- **IMPORTANT: If steps/nodes have sequential numbers in their labels (e.g., "1. Do X", "2. Do Y", "Step 3: ..."), ALWAYS renumber ALL subsequent labels after an insert or delete so the sequence stays correct and contiguous. Never leave gaps or duplicates in numbering.**
 
 OUTPUT ONLY THE UPDATED JSON. No markdown blocks, no explanation.`;
 
