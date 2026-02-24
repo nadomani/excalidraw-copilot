@@ -16,5 +16,9 @@
     "declarationMap": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "webview-ui", "dist", "out"]
+  "exclude": ["node_modules", "webview-ui", "dist", "out",
+    "src/llm/LLMService.ts", "src/llm/types.ts", "src/llm/toolSchemas.ts",
+    "src/execution/ExecutionLoop.ts", "src/execution/ToolExecutor.ts",
+    "src/types/tools.ts"
+  ]
 }

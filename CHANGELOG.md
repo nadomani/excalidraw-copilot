@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] — enhance/complex-charts
+## [0.2.0] — 2026-02-24
 
 ### Added
 - **Dual pipeline** — Mermaid + Semantic DSL, user picks per prompt

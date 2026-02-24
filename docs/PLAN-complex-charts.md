@@ -1,5 +1,7 @@
 # Excalidraw Copilot — Enhancement Plan: Dual Pipeline
 
+> **Status: ✅ COMPLETED** — Merged to master.
+
 ## Branch: `enhance/complex-charts`
 
 ## Problem

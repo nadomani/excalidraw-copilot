@@ -1,5 +1,7 @@
 # Enhancement Plan: Mermaid Editor with Excalidraw Export
 
+> **Status: ✅ COMPLETED** — Implemented as Mermaid native preview (without split text editor). The preview includes zoom, pan, SVG/PNG export, and a "Convert to Excalidraw" button. The text editor portion was descoped in favor of the LLM feedback loop for edits.
+
 ## Branch: `enhance/complex-charts` (continuation)
 
 ## Concept

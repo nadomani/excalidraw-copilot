@@ -1,8 +1,8 @@
 {
   "name": "excalidraw-copilot",
   "displayName": "Excalidraw Copilot",
-  "description": "Natural language diagram generation with Excalidraw and LLM tool calling",
-  "version": "0.1.0",
+  "description": "Generate beautiful diagrams from natural language using GitHub Copilot — process flows, architecture diagrams, and code visualization",
+  "version": "0.2.0",
   "publisher": "nadomani",
   "engines": {
     "vscode": "^1.85.0"
@@ -15,7 +15,10 @@
     "excalidraw",
     "diagram",
     "ai",
-    "llm",
+    "copilot",
+    "mermaid",
+    "architecture",
+    "flowchart",
     "drawing"
   ],
   "activationEvents": [],
@@ -61,43 +64,7 @@
     },
     "configuration": {
       "title": "Excalidraw Copilot",
-      "properties": {
-        "excalidraw-copilot.llmProvider": {
-          "type": "string",
-          "default": "copilot",
-          "enum": [
-            "copilot",
-            "openai",
-            "anthropic"
-          ],
-          "enumDescriptions": [
-            "Use GitHub Copilot (requires Copilot extension, no API key needed)",
-            "Use OpenAI API (requires API key)",
-            "Use Anthropic API (requires API key)"
-          ],
-          "description": "LLM provider to use for diagram generation"
-        },
-        "excalidraw-copilot.openaiApiKey": {
-          "type": "string",
-          "default": "",
-          "description": "OpenAI API key (only needed if provider is 'openai')"
-        },
-        "excalidraw-copilot.anthropicApiKey": {
-          "type": "string",
-          "default": "",
-          "description": "Anthropic API key (only needed if provider is 'anthropic')"
-        },
-        "excalidraw-copilot.model": {
-          "type": "string",
-          "default": "gpt-4o",
-          "description": "Model to use for generation (used with openai/anthropic providers)"
-        },
-        "excalidraw-copilot.maxIterations": {
-          "type": "number",
-          "default": 50,
-          "description": "Maximum tool call iterations per request"
-        }
-      }
+      "properties": {}
     }
   },
   "scripts": {
@@ -123,8 +90,5 @@
     "typescript": "^5.3.2",
     "webpack": "^5.89.0",
     "webpack-cli": "^5.1.4"
-  },
-  "dependencies": {
-    "openai": "^4.24.0"
   }
 }
