@@ -148,11 +148,35 @@ Create a diagram showing:
   context.subscriptions.push(openCommand, generateCommand, diagramFolderCommand, diagramFileCommand, outputChannel);
 }
 
+// Detect if the user's prompt is asking about "this project" / "this codebase"
+// but NOT already enriched with folder analysis (which contains ## markers)
+function isProjectPrompt(prompt: string): boolean {
+  // If the prompt already has analysis sections, it came from right-click folder — skip
+  if (prompt.includes('## Project Structure') || prompt.includes('## Components') || prompt.includes('## DIAGRAM REQUIREMENTS')) {
+    return false;
+  }
+  const lower = prompt.toLowerCase();
+  const projectKeywords = [
+    'this project', 'this codebase', 'this repo', 'this repository',
+    'my project', 'my codebase', 'my repo', 'our project', 'our codebase',
+    'the project', 'the codebase', 'current project', 'workspace',
+    'this app', 'this application', 'this extension', 'this service',
+    'our app', 'our service', 'our repo', 'our extension',
+  ];
+  if (projectKeywords.some(kw => lower.includes(kw))) {
+    return true;
+  }
+  // Also match "project" or "codebase" combined with diagram/architecture verbs
+  const hasSubject = /\b(project|codebase|repo|repository|application|app|service|extension)\b/.test(lower);
+  const hasAction = /\b(diagram|architecture|structure|describe|visualize|draw|show|map|overview)\b/.test(lower);
+  return hasSubject && hasAction;
+}
+
 async function analyzeFolder(folderUri: vscode.Uri): Promise<string> {
   const analysis: string[] = [];
   
   // Find source and config files
-  const sourcePatterns = ['**/*.ts', '**/*.js', '**/*.py', '**/*.cs', '**/*.java', '**/*.go'];
+  const sourcePatterns = ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx', '**/*.py', '**/*.cs', '**/*.java', '**/*.go'];
   const configPatterns = ['**/package.json', '**/requirements.txt', '**/go.mod', '**/*.csproj', '**/pom.xml', '**/Dockerfile', '**/docker-compose.yml', '**/.env.example'];
   const excludePattern = '{**/node_modules/**,**/dist/**,**/build/**,**/.git/**,**/coverage/**,**/__pycache__/**,**/vendor/**}';
 
@@ -226,7 +250,7 @@ async function analyzeFolder(folderUri: vscode.Uri): Promise<string> {
   // --- 3. Prioritize and analyze source files ---
   // Priority: entry points first, then controllers/routes, services, models, then others
   const prioritized = prioritizeFiles(sourceFiles);
-  const maxFiles = 30;
+  const maxFiles = 50;
   const filesToAnalyze = prioritized.slice(0, maxFiles);
 
   // Track the import graph
@@ -290,9 +314,11 @@ function prioritizeFiles(files: vscode.Uri[]): vscode.Uri[] {
     const p = f.path.toLowerCase();
     let score = 0;
     // Entry points
-    if (/\/(index|main|app|server|program)\.(ts|js|py|cs|java|go)$/.test(p)) score += 100;
+    if (/\/(index|main|app|server|program)\.(tsx?|jsx?|py|cs|java|go)$/.test(p)) score += 100;
     // Routes/controllers
     if (/\/(route|controller|handler|endpoint|api)/.test(p)) score += 80;
+    // Components (React/Vue/Angular)
+    if (/\/component/.test(p)) score += 75;
     // Services/business logic
     if (/\/(service|usecase|interactor|manager|provider)/.test(p)) score += 70;
     // Models/entities
@@ -302,7 +328,7 @@ function prioritizeFiles(files: vscode.Uri[]): vscode.Uri[] {
     // Config
     if (/\/(config|setting|constant|env)/.test(p)) score += 40;
     // Tests are least useful for architecture
-    if (/\.(test|spec|e2e)\.(ts|js|py)$/.test(p)) score -= 50;
+    if (/\.(test|spec|e2e)\.(tsx?|jsx?|py)$/.test(p)) score -= 50;
     // Prefer shorter paths (closer to root = more important)
     score -= (p.split(/[/\\]/).length * 2);
     return { file: f, score };
@@ -336,9 +362,13 @@ function analyzeSourceFile(relativePath: string, content: string): {
     role = 'config';
   } else if (/\/(util|helper|lib|common)/.test(pathLower)) {
     role = 'utility';
+  } else if (/\/component/.test(pathLower) || /React\.FC|React\.Component|function\s+\w+\s*\([^)]*\)\s*{[^}]*return\s*\(?\s*</.test(content) || /export\s+(?:default\s+)?function\s+\w+.*?(?:JSX|ReactElement|React\.ReactNode)/.test(content)) {
+    role = 'component';
+  } else if (/\/store|\/slice|\/reducer|createSlice|createStore/.test(pathLower) || /createSlice|createStore|createReducer/.test(content)) {
+    role = 'state/store';
   } else if (/\/(test|spec|__test__)/.test(pathLower)) {
     role = 'test';
-  } else if (/\/(index|main|app|server)\.(ts|js|py|cs)$/.test(pathLower)) {
+  } else if (/\/(index|main|app|server)\.(tsx?|jsx?|py|cs)$/.test(pathLower)) {
     role = 'entry point';
   }
 
@@ -393,20 +423,20 @@ function analyzeSourceFile(relativePath: string, content: string): {
   // Detect external service connections
   const dbPatterns = [
     { pattern: /mongoose|mongodb|MongoClient/i, dep: 'MongoDB' },
-    { pattern: /pg|postgres|PostgreSQL|Pool|Client/i, dep: 'PostgreSQL' },
-    { pattern: /mysql|mysql2/i, dep: 'MySQL' },
-    { pattern: /redis|ioredis|RedisClient/i, dep: 'Redis' },
-    { pattern: /prisma/i, dep: 'Prisma ORM' },
+    { pattern: /\bpg\b|postgres(?:ql)?|NpgsqlConnection|npgsql/i, dep: 'PostgreSQL' },
+    { pattern: /\bmysql2?\b|MySqlConnection/i, dep: 'MySQL' },
+    { pattern: /\bredis\b|ioredis|RedisClient|StackExchange\.Redis/i, dep: 'Redis' },
+    { pattern: /\bprisma\b/i, dep: 'Prisma ORM' },
     { pattern: /typeorm|TypeORM/i, dep: 'TypeORM' },
     { pattern: /sequelize/i, dep: 'Sequelize' },
-    { pattern: /kafka|KafkaClient/i, dep: 'Kafka' },
-    { pattern: /amqp|rabbitmq|RabbitMQ/i, dep: 'RabbitMQ' },
-    { pattern: /elasticsearch|elastic/i, dep: 'Elasticsearch' },
-    { pattern: /s3|S3Client|aws-sdk/i, dep: 'AWS S3' },
+    { pattern: /kafkajs|KafkaClient|Confluent\.Kafka/i, dep: 'Kafka' },
+    { pattern: /amqplib|rabbitmq|RabbitMQ/i, dep: 'RabbitMQ' },
+    { pattern: /elasticsearch|@elastic\/|Elastic\.Clients/i, dep: 'Elasticsearch' },
+    { pattern: /S3Client|aws-sdk|Amazon\.S3/i, dep: 'AWS S3' },
     { pattern: /firebase/i, dep: 'Firebase' },
     { pattern: /graphql|GraphQL|gql`/i, dep: 'GraphQL' },
-    { pattern: /grpc|gRPC/i, dep: 'gRPC' },
-    { pattern: /socket\.io|WebSocket|ws/i, dep: 'WebSocket' },
+    { pattern: /grpc|gRPC|Grpc\.Core/i, dep: 'gRPC' },
+    { pattern: /socket\.io|SignalR/i, dep: 'WebSocket' },
   ];
   for (const { pattern, dep } of dbPatterns) {
     if (pattern.test(content) && !externalDeps.includes(dep)) {
@@ -451,6 +481,31 @@ function setupPanel(panel: ExcalidrawPanel): void {
 async function runGeneration(panel: ExcalidrawPanel, prompt: string): Promise<void> {
   outputChannel.appendLine(`\n=== Generating diagram for: ${prompt} ===`);
   
+  // Auto-detect "project/codebase" prompts and inject workspace analysis
+  let enrichedPrompt = prompt;
+  const detected = isProjectPrompt(prompt);
+  outputChannel.appendLine(`Project prompt detection: ${detected} (prompt: "${prompt.slice(0, 80)}")`);
+  if (detected) {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (workspaceFolder) {
+      outputChannel.appendLine('Detected project-level prompt — injecting workspace analysis...');
+      vscode.window.showInformationMessage('📂 Analyzing workspace for project context...');
+      try {
+        const analysis = await analyzeFolder(workspaceFolder.uri);
+        enrichedPrompt = `Based on this deep code analysis, create a diagram showing the real structure of this codebase.
+
+${analysis}
+
+ORIGINAL USER REQUEST: "${prompt}"
+
+Show ONLY what actually exists in this codebase. Do NOT invent technologies or components not found in the analysis.`;
+        outputChannel.appendLine(`Workspace analysis injected (${analysis.length} chars)`);
+      } catch (e) {
+        outputChannel.appendLine(`Workspace analysis failed: ${(e as Error).message}, using original prompt`);
+      }
+    }
+  }
+
   const diagramService = new SemanticDiagramService(outputChannel);
 
   // Let user pick a model
@@ -492,6 +547,43 @@ async function runGeneration(panel: ExcalidrawPanel, prompt: string): Promise<vo
 
   await panel.waitUntilReady();
 
+  // Detect pipeline suggestion, but let user choose
+  const suggestedMermaid = diagramService.shouldUseMermaid(enrichedPrompt);
+  
+  const pipelineItems = [
+    {
+      label: suggestedMermaid ? '$(star) Mermaid (Recommended)' : 'Mermaid',
+      description: 'Best for architecture — uses Mermaid layout engine',
+      pipeline: 'mermaid' as const
+    },
+    {
+      label: suggestedMermaid ? 'Semantic DSL' : '$(star) Semantic DSL (Recommended)',
+      description: 'Best for processes/recipes — custom layout with colors & emojis',
+      pipeline: 'dsl' as const
+    }
+  ];
+
+  const pickedPipeline = await vscode.window.showQuickPick(pipelineItems, {
+    placeHolder: '🔧 Choose rendering pipeline',
+    title: 'Excalidraw Copilot — Pipeline'
+  });
+
+  if (!pickedPipeline) {
+    return; // user cancelled
+  }
+
+  const useMermaid = pickedPipeline.pipeline === 'mermaid';
+  outputChannel.appendLine(`Pipeline: ${useMermaid ? 'MERMAID (user choice)' : 'DSL (user choice)'}`);
+
+  if (useMermaid) {
+    await runMermaidGeneration(panel, diagramService, enrichedPrompt);
+  } else {
+    await runDslGeneration(panel, diagramService, enrichedPrompt);
+  }
+}
+
+// DSL pipeline — process/recipe diagrams (existing behavior)
+async function runDslGeneration(panel: ExcalidrawPanel, diagramService: SemanticDiagramService, prompt: string): Promise<void> {
   const { layoutGraph } = await import('./layout/engine');
   const { renderToExcalidraw } = await import('./render/shapes');
 
@@ -509,7 +601,6 @@ async function runGeneration(panel: ExcalidrawPanel, prompt: string): Promise<vo
     return elements;
   };
 
-  // Generate initial diagram
   let currentGraph: any = null;
 
   await vscode.window.withProgress(
@@ -546,9 +637,130 @@ async function runGeneration(panel: ExcalidrawPanel, prompt: string): Promise<vo
     }
   );
 
-  // Feedback loop: let user refine conversationally
+  // Feedback loop (DSL path)
   if (currentGraph) {
     await runFeedbackLoop(panel, diagramService, prompt, currentGraph, renderGraph);
+  }
+}
+
+// Mermaid pipeline — architecture diagrams
+async function runMermaidGeneration(panel: ExcalidrawPanel, diagramService: SemanticDiagramService, prompt: string): Promise<void> {
+  let currentMermaid: string | null = null;
+
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: 'Generating architecture diagram (Mermaid)...',
+      cancellable: false,
+    },
+    async (progress) => {
+      try {
+        progress.report({ message: '🧠 Planning architecture... (15-20 sec)' });
+        
+        const result = await diagramService.generateMermaidDiagram(
+          prompt,
+          (stage) => progress.report({ message: stage })
+        );
+        
+        currentMermaid = result.mermaidSyntax;
+        outputChannel.appendLine(`Mermaid generated (${currentMermaid.length} chars)`);
+        
+        // Save Mermaid to file for debugging/comparison
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (workspaceFolder) {
+          const mermaidUri = vscode.Uri.joinPath(workspaceFolder.uri, '.excalidraw-debug', 'last-mermaid.md');
+          const mermaidContent = `# Last Generated Mermaid Diagram\n\n\`\`\`mermaid\n${currentMermaid}\n\`\`\`\n`;
+          await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(workspaceFolder.uri, '.excalidraw-debug'));
+          await vscode.workspace.fs.writeFile(mermaidUri, Buffer.from(mermaidContent));
+          outputChannel.appendLine(`Mermaid saved to .excalidraw-debug/last-mermaid.md`);
+        }
+        
+        progress.report({ message: '🖼️ Rendering Mermaid preview...' });
+        await panel.sendMessage({ type: 'clearCanvas', payload: {} });
+        await panel.sendMessage({ type: 'showMermaidPreview', payload: { mermaidSyntax: currentMermaid } } as any);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        vscode.window.showInformationMessage('✅ Architecture diagram ready! (Mermaid pipeline)');
+        
+      } catch (e) {
+        const error = e as Error;
+        outputChannel.appendLine(`Mermaid error: ${error.message}`);
+        outputChannel.appendLine(error.stack || '');
+        vscode.window.showErrorMessage(`Diagram generation failed: ${error.message}`);
+      }
+    }
+  );
+
+  // Feedback loop (Mermaid path)
+  if (currentMermaid) {
+    await runMermaidFeedbackLoop(panel, diagramService, prompt, currentMermaid);
+  }
+}
+
+// Mermaid feedback loop
+async function runMermaidFeedbackLoop(
+  panel: ExcalidrawPanel,
+  diagramService: SemanticDiagramService,
+  originalPrompt: string,
+  initialMermaid: string
+): Promise<void> {
+  let currentMermaid = initialMermaid;
+  let iteration = 0;
+
+  while (iteration < 10) {
+    const feedback = await vscode.window.showInputBox({
+      prompt: iteration === 0
+        ? '💬 Any changes? (e.g., "add a caching layer", "group the databases together")'
+        : '💬 More changes? (press Escape when done)',
+      placeHolder: 'Describe what to change, or press Escape to finish',
+      ignoreFocusOut: true,
+    });
+
+    if (!feedback || feedback.trim() === '') {
+      break;
+    }
+
+    iteration++;
+    outputChannel.appendLine(`\n=== Mermaid Feedback #${iteration}: ${feedback} ===`);
+
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: 'Updating architecture diagram...',
+        cancellable: false,
+      },
+      async (progress) => {
+        try {
+          progress.report({ message: `🔄 Applying: "${feedback.slice(0, 50)}..."` });
+          
+          currentMermaid = await diagramService.refineMermaidWithFeedback(
+            originalPrompt,
+            currentMermaid,
+            feedback
+          );
+          
+          progress.report({ message: '🖼️ Re-rendering preview...' });
+          await panel.sendMessage({ type: 'showMermaidPreview', payload: { mermaidSyntax: currentMermaid } } as any);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          vscode.window.showInformationMessage('✅ Architecture updated! (Mermaid pipeline)');
+          
+        } catch (e) {
+          const error = e as Error;
+          outputChannel.appendLine(`Mermaid feedback error: ${error.message}`);
+          vscode.window.showErrorMessage(`Update failed: ${error.message}. Try rephrasing.`);
+        }
+      }
+    );
+  }
+
+  // Offer re-entry after the loop ends
+  const reopen = await vscode.window.showInformationMessage(
+    '✅ Mermaid diagram finalized. Want to refine further?',
+    'Continue Refining'
+  );
+  if (reopen === 'Continue Refining') {
+    await runMermaidFeedbackLoop(panel, diagramService, originalPrompt, currentMermaid);
   }
 }
 
@@ -611,6 +823,15 @@ async function runFeedbackLoop(
         }
       }
     );
+  }
+
+  // Offer re-entry after the loop ends
+  const reopen = await vscode.window.showInformationMessage(
+    '✅ Diagram finalized. Want to refine further?',
+    'Continue Refining'
+  );
+  if (reopen === 'Continue Refining') {
+    await runFeedbackLoop(panel, diagramService, originalPrompt, currentGraph, renderGraph);
   }
 }
 

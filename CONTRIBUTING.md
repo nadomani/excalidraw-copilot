@@ -2,27 +2,67 @@
 
 ## Architecture
 
-### Semantic DSL Pipeline
-```
-User Prompt → LLM (Thinking + Generation) → Semantic Graph JSON → Layout Engine → Excalidraw Elements → WebView
-```
+### Dual Pipeline Design
 
-The LLM outputs **WHAT** (nodes, connections, groups, notes — no coordinates). The layout engine decides **WHERE**. The renderer decides **HOW** (colors, shapes, text).
+Excalidraw Copilot uses **two rendering pipelines**, chosen by the user after each prompt:
+
+#### 🎨 Semantic DSL Pipeline (Process Diagrams)
+```
+Prompt → LLM Think → LLM Generate JSON → Layout Engine → Excalidraw Elements → WebView
+```
+- **Best for:** Recipes, tutorials, step-by-step processes, detailed code documentation
+- **Speed:** ~30-40 sec (JSON generation + custom layout + individual element rendering)
+- **Detail:** 15-30 nodes with emojis, descriptions, pro tips, rich color palette
+- **How it works:** The LLM outputs a semantic graph JSON (nodes, connections, groups, notes). Our custom layout engine positions everything on a grid with snake wrapping. The renderer converts each node into styled Excalidraw shapes.
+
+#### 🧜 Mermaid Pipeline (Architecture Diagrams)
+```
+Prompt → LLM Think → LLM Generate Mermaid → Native Mermaid Preview → (optional) Convert to Excalidraw
+```
+- **Best for:** System design, architecture diagrams, folder analysis, infrastructure
+- **Speed:** ~15-20 sec (compact Mermaid syntax + native render)
+- **Detail:** 15-25 nodes with subgraphs, color-coded per type
+- **How it works:** The LLM outputs Mermaid flowchart syntax. The webview renders it natively as SVG with zoom/pan/export. User can optionally convert to Excalidraw via `@excalidraw/mermaid-to-excalidraw`.
+- **Debug:** Generated Mermaid saved to `.excalidraw-debug/last-mermaid.md`
 
 ### Key Files
 
 | File | Purpose |
 |------|---------|
+| `src/extension.ts` | Commands, pipeline routing, folder/file analysis, feedback loops, project detection |
+| `src/llm/SemanticDiagramService.ts` | Two-pass LLM generation (think → generate), Mermaid prompts, refinement, pipeline detection |
 | `src/dsl/types.ts` | TypeScript types for the semantic graph DSL |
 | `src/dsl/prompt.ts` | System prompts with schema + examples for the LLM |
 | `src/layout/engine.ts` | Grid layout, snake wrapping, connection routing, fan-out spread |
 | `src/render/shapes.ts` | Converts positioned graph → Excalidraw elements (per-line text rendering) |
 | `src/render/styles.ts` | Semantic color palette (7 colors × 3 shades each) |
-| `src/llm/SemanticDiagramService.ts` | Two-pass LLM: think → generate, plus feedback refinement |
-| `src/extension.ts` | Main entry: commands, folder analysis, feedback loop, model picker |
-| `src/types/messages.ts` | WebView ↔ Extension message types (includes `addElements` batch) |
-| `webview-ui/src/App.tsx` | React app embedding Excalidraw, handles messages |
+| `src/types/messages.ts` | Extension ↔ WebView message types |
 | `src/webview/WebViewPanel.ts` | VS Code WebView panel management |
+| `webview-ui/src/App.tsx` | React app: Excalidraw canvas, Mermaid preview with zoom/pan/export, message handling |
+
+### Message Protocol
+
+Extension → WebView: `postMessage({ type, payload })`
+WebView → Extension: `vscode.postMessage({ type, payload })`
+
+Key message types:
+- `addElements` — batch add pre-rendered Excalidraw elements (DSL pipeline)
+- `showMermaidPreview` — send Mermaid syntax for native preview (Mermaid pipeline)
+- `renderMermaid` — convert Mermaid syntax directly to Excalidraw elements (legacy)
+- `clearCanvas` — reset canvas + switch back to Excalidraw view mode
+- `zoomToFit` — auto-zoom after rendering
+
+### Code Analysis (Folder Scanner)
+`analyzeFolder()` in `extension.ts` scans:
+- **Source patterns:** `.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.cs`, `.java`, `.go`
+- **Config patterns:** `package.json`, `requirements.txt`, `*.csproj`, `Dockerfile`, etc.
+- **Role detection:** entry point, controller, service, model, component, state/store, middleware, utility
+- **Import graph:** local imports traced between files
+- **External deps:** databases, caches, queues, cloud services detected from code patterns
+- **Max files:** 50 (prioritized: entry points > controllers > components > services > models)
+
+### Smart Project Detection
+`isProjectPrompt()` detects when user prompt refers to "this project/codebase/app" and auto-injects workspace analysis. Skips if the prompt already contains analysis markers (from right-click folder).
 
 ### Node Types
 `service` (blue rect), `database` (green ellipse), `cache` (orange), `queue` (purple), `external` (gray dashed), `user` (info), `process` (yellow rect), `decision` (diamond), `note` (sticky), `group` (container)
@@ -36,18 +76,19 @@ The LLM outputs **WHAT** (nodes, connections, groups, notes — no coordinates).
 git clone https://github.com/nadomani/excalidraw-copilot.git
 cd excalidraw-copilot
 npm install
+cd webview-ui && npm install && cd ..
 npm run compile
 # Press F5 in VS Code → launches Extension Development Host
-# If "errors exist" dialog appears → click "Debug Anyway" (false alarm from DevSkim)
 ```
 
-**Build:** `npm run compile` (webpack)  
-**Watch:** `npm run watch`  
-**Webview:** `cd webview-ui && npm run build`  
+**Build:** `npm run compile` (webpack)
+**Watch:** `npm run watch`
+**Webview:** `cd webview-ui && npm run build`
 
 ### Debug Tips
-- Output panel: `Ctrl+Shift+U` → "Excalidraw Copilot" channel logs model name, node counts, errors
+- Output panel: `Ctrl+Shift+U` → "Excalidraw Copilot" — logs model name, pipeline choice, node counts, errors
 - WebView DevTools: `Ctrl+Shift+P` → "Developer: Open Webview Developer Tools"
+- Mermaid debug: `.excalidraw-debug/last-mermaid.md` in the workspace
 
 ## Configuration Reference
 
@@ -66,30 +107,25 @@ noteHeight: 120,       // Dynamic: grows with text
 groupPadding: 35
 ```
 
-### Rendering Zones (per node box, 140px medium height)
-```
-boxTop + 6-10:    Label (fontSize 18, color = border color, wraps to 2 lines max)
-labelBottom + 2:  Emoji (fontSize 26)
-boxBottom - desc: Description (fontSize 13, color #333333, max 3 lines, per-line rendered)
-```
-
 ### LLM Prompts (`src/llm/SemanticDiagramService.ts`)
-- **THINKING_PROMPT**: Plans diagram structure, decides type (process vs architecture), lists 5-8 elements
+- **THINKING_PROMPT**: Plans diagram structure, decides type
 - **GENERATION_PROMPT**: Creates JSON with schema, examples, color guidance
-- **refineDiagramWithFeedback()**: Sends current graph JSON + user feedback, asks for updated JSON only
+- **MERMAID_THINKING_PROMPT**: Plans Mermaid architecture (15-25 nodes, 4-7 subgraphs)
+- **MERMAID_GENERATION_PROMPT**: Generates Mermaid with strict style rules, abstract example
+- **MERMAID_REFINEMENT_PROMPT**: Updates Mermaid syntax based on user feedback
+- **refineDiagramWithFeedback()**: Updates DSL JSON with auto-renumbering instructions
 
 ## Known Issues
 
-### 1. Arrow Mess on Complex Architecture Diagrams (Medium)
-- When 20+ nodes with many cross-connections exist, arrows overlap and create visual clutter
-- Fan-out spread helps for direct parent-child, but cross-layer connections still overlap
-- **Fix ideas:** Arrow path-finding algorithm (A* avoiding node rects), or curved bezier arrows
+### 1. Arrow Mess on Complex DSL Diagrams (Medium)
+- When 20+ nodes with many cross-connections, arrows overlap
+- Fan-out spread helps for parent-child, but cross-layer connections still overlap
+- **Fix ideas:** A* pathfinding avoiding node rects, or curved bezier arrows
 
-### 2. Architecture Diagrams Less Rich Than Claude Desktop (Medium)
-- Claude Desktop creates "boxes within boxes" — nested containers with inline text lists
-- Our DSL only supports: nodes in a grid + groups as background rectangles
-- **Root cause:** DSL limitation — no concept of "text list items within a group"
-- **Fix:** Extend DSL with new element types (see Future Enhancements)
+### 2. Mermaid-to-Excalidraw Conversion Quality (Low)
+- Native Mermaid SVG looks better than converted Excalidraw (arrow routing, spacing)
+- This is a fundamental limitation of `@excalidraw/mermaid-to-excalidraw`
+- **Workaround:** Use the Mermaid preview mode and only convert when you need to edit
 
 ### 3. Visual Refinement Loop Disabled
 - Originally: render → screenshot → LLM critique → improve
@@ -97,41 +133,31 @@ boxBottom - desc: Description (fontSize 13, color #333333, max 3 lines, per-line
 - Currently disabled in extension.ts
 
 ### 4. Excalidraw Text Rendering Quirks (Documented)
-- Excalidraw IGNORES the `width` property for standalone text (containerId: null) — it auto-sizes
-- `containerId`/`boundElements` binding doesn't work reliably with sequential `addElement` calls
-- **Solution in place:** Per-line rendering — each line is a separate text element, positioned manually
-- Any future text changes MUST use per-line rendering or binding will break
+- Excalidraw ignores `width` for standalone text — it auto-sizes
+- `containerId`/`boundElements` binding unreliable with sequential `addElement`
+- **Solution in place:** Per-line rendering — each line is a separate text element
 
 ## Future Enhancements
 
-### Priority 1: Architecture Diagram Quality
-1. **Extend DSL with "list items"** — new element type for text-only items inside groups
-2. **Add `fontFamily: 3` option** — monospace font for architecture diagrams
-3. **Tighter group rendering** — groups should feel like visual containers
-4. **Separate architecture prompts** — dedicated prompts for architecture vs process
+### Priority 1: Publish Extension
+1. Package with `vsce` and publish to VS Code Marketplace
+2. Add extension icon and marketplace metadata
+3. Write marketplace description with screenshots
 
-### Priority 2: Arrow Routing
-1. **A* pathfinding** — route arrows around node rectangles
-2. **Curved arrows** — Excalidraw supports bezier curves
-3. **Arrow labels** — render connection labels along the arrow path
-4. **Arrow color by semantic** — dashed=optional, solid=required, red=critical path
+### Priority 2: Architecture Diagram Quality
+1. Extend DSL with "list items" inside groups
+2. Add `fontFamily: 3` option for monospace
+3. Tighter group rendering — groups as visual containers
+4. Nested subgraphs in Mermaid for complex systems
 
 ### Priority 3: More Visualization Types
-1. **Sequence diagrams** — vertical timeline with participant swim-lanes
-2. **Class diagrams** — UML-style with methods/properties
-3. **ER diagrams** — entity-relationship with cardinality labels
-4. **Mind maps** — radial layout from center
-5. **Diagram type picker** — let user choose visualization style
+1. Sequence diagrams — vertical timeline with swim-lanes
+2. Class diagrams — UML-style with methods/properties
+3. ER diagrams — entity-relationship with cardinality
+4. Mind maps — radial layout from center
 
 ### Priority 4: Polish
-1. **Re-enable visual refinement** — fix the screenshot→critique→improve loop
-2. **Export options** — save as PNG, SVG, or .excalidraw file
-3. **Undo in feedback loop** — "go back to previous version"
-4. **Remember model choice** — persist model selection across sessions
-5. **Better progress** — show actual LLM streaming progress
-
-### Priority 5: Code Intelligence
-1. **Deeper file analysis** — read full files, understand call graphs
-2. **Multi-project support** — analyze multiple related repos
-3. **Live updates** — watch for file changes and suggest diagram updates
-4. **Language server integration** — use VS Code symbol info for accurate detection
+1. Re-enable visual refinement loop
+2. Undo in feedback loop ("go back to previous version")
+3. Remember model choice across sessions
+4. Live LLM streaming progress

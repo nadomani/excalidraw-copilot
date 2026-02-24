@@ -1,101 +1,126 @@
 # Excalidraw Copilot 🎨
 
-A VS Code extension that generates beautiful diagrams from natural language using your GitHub Copilot subscription. No API keys needed.
+A VS Code extension that generates beautiful, editable diagrams from natural language using your GitHub Copilot subscription. No API keys needed — just describe what you want.
 
-## ✨ What It Does
+## ✨ Features at a Glance
 
-Type a prompt like **"Draw the architecture of Twitter"** or **"How to make cheese step by step"** and get a visual Excalidraw diagram — then refine it conversationally.
-
-### Process Diagrams
-Great for recipes, tutorials, how-to guides — colorful numbered steps with emojis, snake layout, pro tips.
-
-### Architecture Diagrams
-Generates system architecture from descriptions or **real code analysis** — scans your project files, detects components, and diagrams the actual structure.
+- 🗣️ **Natural language → Diagram** — describe it, see it
+- 📂 **Code-aware** — right-click any folder or file to diagram its real architecture
+- 🔄 **Conversational refinement** — chat to refine: *"add a caching layer"*, *"fix step 3"*
+- 🧜 **Dual pipeline** — Mermaid native preview for architecture, Semantic DSL for processes
+- 🔍 **Mermaid zoom, pan & export** — Ctrl+Scroll to zoom, export as SVG or PNG
+- 🤖 **Model picker** — choose Claude Opus, Sonnet, GPT-4o, or any Copilot-available model
+- 🧠 **Smart project detection** — type "diagram this project" and it auto-analyzes your workspace
+- ✏️ **Fully editable** — every diagram lands on an Excalidraw canvas you can hand-edit
 
 ## 🚀 Quick Start
 
-### 1. Clone & Open
+### 1. Clone & Install
 ```bash
 git clone https://github.com/nadomani/excalidraw-copilot.git
 cd excalidraw-copilot
 npm install
-code .
+cd webview-ui && npm install && cd ..
 ```
 
 ### 2. Build & Launch
-Press **F5** in VS Code. This opens a new VS Code window with the extension loaded.
+Press **F5** in VS Code. This opens an Extension Development Host window with the extension loaded.
 
-> If you see "errors exist after running preLaunchTask" — click **Debug Anyway** (it's a false alarm from DevSkim scanning other extensions).
+> If you see "errors exist after running preLaunchTask" — click **Debug Anyway** (it's a false alarm from DevSkim).
 
 ### 3. Generate Your First Diagram
-In the **new VS Code window**:
+In the **Extension Development Host** window:
 1. `Ctrl+Shift+P` → **"Excalidraw Copilot: Generate Diagram"**
 2. Pick a model (Opus = best quality, Sonnet = fast)
-3. Type your prompt
-4. Watch the diagram render!
-5. A feedback input appears — describe changes or press Escape
+3. Choose a pipeline (Mermaid or Semantic DSL)
+4. Type your prompt — watch the diagram render!
+5. A feedback popup appears — describe changes or press Escape to finish
+6. If you close the popup, a **"Continue Refining"** button lets you re-enter anytime
 
 ## 📋 Commands
 
-| Command | How to Trigger |
-|---------|---------------|
-| **Generate Diagram** | `Ctrl+Shift+P` → "Generate Diagram" |
-| **Diagram This Folder** | Right-click a folder in Explorer |
-| **Diagram This File** | Right-click a file in Explorer, or right-click in the editor |
-| **Open Canvas** | `Ctrl+Shift+P` → "Open Canvas" (blank canvas) |
+| Command | How to Trigger | What It Does |
+|---------|---------------|--------------|
+| **Generate Diagram** | `Ctrl+Shift+P` → "Generate Diagram" | Free-text prompt → diagram |
+| **Diagram This Folder** | Right-click folder in Explorer | Scans code, generates architecture |
+| **Diagram This File** | Right-click file in Explorer / editor | Diagrams a file's internal structure |
+| **Open Canvas** | `Ctrl+Shift+P` → "Open Canvas" | Opens a blank Excalidraw canvas |
 
-## 🎯 Usage Guide
+## 🎯 Complete Usage Guide
 
 ### Free-Text Prompts
+Type anything — the extension figures out the best approach:
 ```
-Draw a microservices architecture with API gateway, user service, and PostgreSQL
+Draw the architecture of Twitter
+How to make cheese step by step
 Create a flowchart for user registration with email verification
-How to make a latte step by step
-Design the architecture of a real-time chat application
+Design a microservices system with API gateway and message queue
 ```
 
-### Diagram Your Code
-1. Open any project in the Extension Development Host window
-2. Right-click a **folder** in Explorer → **"Excalidraw Copilot: Diagram This Folder"**
-3. The extension scans your code:
-   - File structure and roles (controllers, services, models)
-   - Import/dependency graph
-   - External services (databases, caches, queues)
-   - HTTP endpoints
-   - Docker/infrastructure files
-4. Sends the analysis to the LLM to generate an architecture diagram
+### Smart Project Detection
+Type prompts like **"diagram this project"** or **"show the architecture of this app"** in the prompt bar — the extension automatically scans your open workspace (files, dependencies, imports) and passes the real analysis to the LLM. No need to right-click.
+
+### Diagram Your Code (Folder)
+1. Right-click any **folder** in Explorer → **"Excalidraw Copilot: Diagram This Folder"**
+2. The extension deep-scans your code:
+   - **File structure** and directory layout
+   - **Component roles** — entry points, controllers, services, models, components, state/stores, utilities
+   - **Import/dependency graph** — who imports whom
+   - **External services** — databases (PostgreSQL, MongoDB, Redis), queues (Kafka, RabbitMQ), cloud services
+   - **HTTP endpoints** — REST routes detected from code
+   - **Frameworks** — React, Express, NestJS, .NET, Flask, and more
+   - **Infrastructure** — Dockerfile, docker-compose analysis
+3. Supports: `.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.cs`, `.java`, `.go`
+4. The analysis is sent to the LLM — you get a diagram of your **actual** codebase, not a generic template
 
 ### Diagram a Single File
 1. Right-click a **file** → **"Excalidraw Copilot: Diagram This File"**
-2. Shows classes, functions, relationships, and dependencies within that file
+2. Shows classes, interfaces, functions, inheritance, method calls, and external dependencies
 
-### Conversational Refinement (Ping-Pong)
-After any diagram generates, an input box asks **"Any changes?"**:
+### Conversational Refinement
+After every diagram, a feedback popup appears — refine by chatting:
 ```
 "Add a caching layer between API and database"
-"Step 3 is wrong, it should be pasteurize not boil"
+"Step 3 is wrong — it should be pasteurize not boil"
 "Remove the queue and connect directly"
-"Make the auth service red and add OAuth in the description"
+"Add a step after step 2 for validation"
+"Group all the databases together"
 ```
-Press **Escape** when you're happy. Up to 10 refinement rounds.
+- Up to **10 refinement rounds** per session
+- Press **Escape** to finish — a **"Continue Refining"** notification lets you re-enter the loop anytime
+- Step numbers are **automatically renumbered** when you add or remove steps
 
 ### Model Selection
 Every generation starts with a model picker:
-- **Claude Opus** — Best quality, most detailed diagrams
+- **Claude Opus** — Best quality, most detailed and accurate diagrams
 - **Claude Sonnet** — Good balance of speed and quality
 - **GPT-4o** — Fast, decent quality
-- Other models available depending on your Copilot subscription
+- Any other model available through your Copilot subscription
 
-## 🏗️ Architecture
+### Pipeline Selection (Mermaid vs DSL)
+After choosing a model, you pick a **rendering pipeline**. The extension recommends one based on your prompt:
 
-```
-User Prompt → LLM (Think + Generate) → Semantic Graph JSON → Layout Engine → Excalidraw Elements → WebView
-```
+| | 🎨 Semantic DSL | 🧜 Mermaid |
+|--|-----------------|-----------|
+| **Best for** | Process diagrams, recipes, tutorials | Architecture diagrams, system design |
+| **Output** | Editable Excalidraw shapes | Native Mermaid preview → convert to Excalidraw |
+| **Detail** | 15-30 nodes with emojis, colors, descriptions, pro tips | 15-25 nodes with subgraphs, clean layers |
+| **Speed** | ~30-40 sec | ~15-20 sec |
+| **Layout** | Custom grid engine with snake wrapping | Mermaid's dagre layout engine |
+| **Colors** | Rich semantic palette (7 colors × 3 shades) | Per-node style directives (6 color categories) |
 
-The LLM outputs a **semantic graph** (nodes, connections, groups, notes — no coordinates). The layout engine positions everything automatically. The renderer converts to Excalidraw elements.
+### Mermaid Preview Mode
+When using the Mermaid pipeline, diagrams render as **native Mermaid** first (better layout and arrow routing than direct conversion). The preview includes:
 
-### Semantic DSL
-The LLM generates JSON like:
+- **Zoom** — `Ctrl+Scroll` to zoom in/out, or use the `+`/`−` buttons
+- **Pan** — `Alt+Drag` or middle-click drag to pan around
+- **Reset** — Click the `%` label or `⊡` button to reset zoom and pan
+- **Export SVG** — Download the diagram as a vector SVG file
+- **Export PNG** — Download as a high-resolution PNG (2× for crisp output)
+- **Convert to Excalidraw** — Click the green button to convert to editable Excalidraw elements
+
+### DSL Internals (For the Curious)
+The Semantic DSL pipeline generates a JSON graph:
 ```json
 {
   "title": "Twitter Architecture",
@@ -104,24 +129,20 @@ The LLM generates JSON like:
     {"id": "gateway", "type": "service", "label": "API Gateway", "emoji": "🚪", "semanticColor": "primary"},
     {"id": "redis", "type": "cache", "label": "Redis Cache", "emoji": "⚡", "semanticColor": "warning"}
   ],
-  "connections": [
-    {"from": "gateway", "to": "redis", "style": "dashed"}
-  ]
+  "connections": [{"from": "gateway", "to": "redis", "style": "dashed"}]
 }
 ```
 
-### Node Types
-`service` (blue), `database` (green), `cache` (orange), `queue` (purple), `external` (gray), `user` (cyan), `process` (yellow), `decision` (red diamond)
+**Node types:** `service` (blue), `database` (green), `cache` (orange), `queue` (purple), `external` (gray), `user` (cyan), `process` (yellow), `decision` (red diamond)
 
-### Semantic Colors
-`primary` (blue), `secondary` (purple), `success` (green), `warning` (amber), `danger` (red), `info` (cyan), `neutral` (gray)
+**Semantic colors:** `primary` (blue), `secondary` (purple), `success` (green), `warning` (amber), `danger` (red), `info` (cyan), `neutral` (gray)
 
 ## 🔧 Development
 
 ### Build
 ```bash
 npm install
-npm run compile        # One-time build
+npm run compile        # Build extension (webpack)
 npm run watch          # Auto-rebuild on changes
 ```
 
@@ -129,30 +150,34 @@ npm run watch          # Auto-rebuild on changes
 ```bash
 cd webview-ui
 npm install
-npm run build          # Build webview
+npm run build          # Production build (vite)
 npm run dev            # Dev mode with hot reload
 ```
 
 ### Project Structure
 ```
 src/
-  extension.ts           # Main entry, commands, folder analysis, feedback loop
-  dsl/
-    types.ts             # Semantic graph types
-    prompt.ts            # LLM system prompts
-  layout/
-    engine.ts            # Grid layout, snake wrapping, arrow routing
-  render/
-    shapes.ts            # Excalidraw element generation
-    styles.ts            # Color palette
+  extension.ts              # Commands, folder/file analysis, pipeline routing, feedback loops
   llm/
-    SemanticDiagramService.ts  # LLM two-pass generation + refinement
+    SemanticDiagramService.ts  # Two-pass LLM generation (think → generate), refinement, Mermaid prompts
+  dsl/
+    types.ts                # Semantic graph types (nodes, connections, groups)
+    prompt.ts               # LLM system prompts with schema + examples
+  layout/
+    engine.ts               # Grid layout, snake wrapping, arrow routing
+  render/
+    shapes.ts               # Semantic graph → Excalidraw elements
+    styles.ts               # Color palette (7 colors × 3 shades)
   webview/
-    WebViewPanel.ts      # VS Code WebView panel management
+    WebViewPanel.ts         # VS Code WebView panel management
   types/
-    messages.ts          # WebView ↔ Extension message protocol
+    messages.ts             # Extension ↔ WebView message protocol
 webview-ui/
-  src/App.tsx            # React app with Excalidraw
+  src/
+    App.tsx                 # React app: Excalidraw canvas + Mermaid preview mode
+    hooks/useMessageBridge.ts  # WebView ↔ Extension messaging hook
+docs/                       # Plans and design documents
+.ai/                        # AI context (architecture, conventions)
 ```
 
 ## 🐛 Troubleshooting
@@ -166,14 +191,30 @@ webview-ui/
 - Check Output panel: `Ctrl+Shift+U` → "Excalidraw Copilot"
 - Open WebView DevTools: `Ctrl+Shift+P` → "Developer: Open Webview Developer Tools"
 
-**Diagram looks wrong**
-- Use the feedback loop: "move X to the right", "make Y bigger"
-- Try a different model (Opus produces best results)
-- Check the Output channel for the generated JSON
+**Diagram shows generic architecture (not my project)**
+- Use right-click → "Diagram This Folder" for code-aware analysis
+- Or type "diagram this project" in the prompt bar — it auto-detects and scans your workspace
+- Check the Output channel for `Project prompt detection: true`
+
+**Diagram looks wrong or incomplete**
+- Use the feedback loop to refine: *"move X to the right"*, *"add Y"*
+- Try a different model (Opus produces the most detailed results)
+- Try the other pipeline (Mermaid vs DSL) for a different perspective
+- Check the Output channel for the generated graph/Mermaid
+
+**Mermaid preview not rendering**
+- Open WebView DevTools to check for console errors
+- The generated Mermaid syntax is saved to `.excalidraw-debug/last-mermaid.md` for inspection
 
 **Build errors on F5**
 - Run `npm run compile` manually to see actual errors
-- The "preLaunchTask errors" dialog is usually a false alarm — click "Debug Anyway"
+- The "preLaunchTask errors" dialog is usually a false alarm — click **Debug Anyway**
+
+## ⚠️ Known Limitations
+
+- **Mermaid → Excalidraw conversion quality** — The "Convert to Excalidraw" button uses the third-party [`@excalidraw/mermaid-to-excalidraw`](https://github.com/excalidraw/mermaid-to-excalidraw) library, which can produce degraded arrow routing, overlapping labels, and spacing issues compared to the native Mermaid preview. For best visual results, use the **Mermaid preview mode** (with zoom, pan, and SVG/PNG export) and only convert to Excalidraw when you need to hand-edit individual elements.
+- **Complex DSL diagrams (20+ nodes)** — Arrow overlaps can occur on dense diagrams with many cross-layer connections. Use the feedback loop to simplify or regroup.
+- **LLM variability** — Results vary by model. Claude Opus produces the most detailed and accurate diagrams. Smaller models may oversimplify or hallucinate components.
 
 ## 📄 License
 

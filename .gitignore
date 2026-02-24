@@ -27,3 +27,6 @@ npm-debug.log*
 
 # Session notes
 SESSION_HANDOFF.md
+
+# Debug output
+.excalidraw-debug/
