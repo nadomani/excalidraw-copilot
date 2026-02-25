@@ -320,7 +320,6 @@ export class SemanticDiagramService {
     if (this.outputChannel) {
       this.outputChannel.appendLine(message);
     }
-    console.log(message);
   }
 
   // Get all available models for the picker UI

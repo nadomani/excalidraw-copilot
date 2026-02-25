@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Excalidraw } from '@excalidraw/excalidraw';
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types/types';
-import { useMessageBridge } from './hooks/useMessageBridge';
+import { useMessageBridge, getVsCodeApi } from './hooks/useMessageBridge';
 import { nanoid } from 'nanoid';
 import mermaid from 'mermaid';
 
@@ -172,6 +172,36 @@ function App() {
     renderMermaid();
   }, [currentMermaid, viewMode, theme]);
 
+  // Intercept <a download> clicks (Excalidraw save-to-disk) and route through extension
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement).closest?.('a[download]') as HTMLAnchorElement | null;
+      if (!anchor) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const api = getVsCodeApi();
+      if (!api) return;
+      const filename = anchor.download || 'diagram.excalidraw';
+      const href = anchor.href;
+      if (href.startsWith('blob:')) {
+        fetch(href).then(r => r.text()).then(data => {
+          api.postMessage({ type: 'saveToFile', payload: { data, filename, mimeType: 'application/json', encoding: 'utf8' } });
+        });
+      } else if (href.startsWith('data:')) {
+        const [header, data] = href.split(',');
+        const isBase64 = header.includes(';base64');
+        api.postMessage({ type: 'saveToFile', payload: {
+          data: isBase64 ? data : decodeURIComponent(data),
+          filename,
+          mimeType: 'application/json',
+          encoding: isBase64 ? 'base64' : 'utf8',
+        } });
+      }
+    };
+    document.addEventListener('click', handler, true);
+    return () => document.removeEventListener('click', handler, true);
+  }, []);
+
   // Handle "Convert to Excalidraw" button
   const handleConvertToExcalidraw = useCallback(async () => {
     if (!currentMermaid) return;
@@ -245,22 +275,32 @@ function App() {
   // Export Mermaid as SVG
   const handleExportSvg = useCallback(() => {
     if (!mermaidSvg) return;
-    const blob = new Blob([mermaidSvg], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'mermaid-diagram.svg';
-    a.click();
-    URL.revokeObjectURL(url);
+    const api = getVsCodeApi();
+    api?.postMessage({ type: 'saveToFile', payload: {
+      data: mermaidSvg,
+      filename: 'mermaid-diagram.svg',
+      mimeType: 'image/svg+xml',
+      encoding: 'utf8',
+    } });
   }, [mermaidSvg]);
 
   // Export Mermaid as PNG
   const handleExportPng = useCallback(() => {
     if (!mermaidSvg) return;
     const svgEl = new DOMParser().parseFromString(mermaidSvg, 'image/svg+xml').documentElement;
-    const w = parseFloat(svgEl.getAttribute('width') || '800') * mermaidZoom;
-    const h = parseFloat(svgEl.getAttribute('height') || '600') * mermaidZoom;
-    // Use viewBox or natural size at 2x for crisp export
+    // Get dimensions from width/height attrs or viewBox
+    let w = parseFloat(svgEl.getAttribute('width') || '0');
+    let h = parseFloat(svgEl.getAttribute('height') || '0');
+    if (!w || !h) {
+      const vb = svgEl.getAttribute('viewBox')?.split(/[\s,]+/).map(Number);
+      if (vb && vb.length === 4) { w = vb[2]; h = vb[3]; }
+      else { w = 800; h = 600; }
+    }
+    // Ensure SVG has explicit width/height for canvas rendering
+    svgEl.setAttribute('width', String(w));
+    svgEl.setAttribute('height', String(h));
+    const fixedSvg = new XMLSerializer().serializeToString(svgEl);
+
     const scale = 2;
     const canvas = document.createElement('canvas');
     canvas.width = w * scale;
@@ -270,18 +310,32 @@ function App() {
     ctx.fillStyle = theme === 'dark' ? '#1e1e1e' : '#ffffff';
     ctx.fillRect(0, 0, w, h);
     const img = new Image();
-    const svgBlob = new Blob([mermaidSvg], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(svgBlob);
+    // Use data URL instead of blob URL for better webview compatibility
+    const encoded = btoa(unescape(encodeURIComponent(fixedSvg)));
     img.onload = () => {
       ctx.drawImage(img, 0, 0, w, h);
-      URL.revokeObjectURL(url);
-      const a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png');
-      a.download = 'mermaid-diagram.png';
-      a.click();
+      const dataUrl = canvas.toDataURL('image/png');
+      const base64 = dataUrl.split(',')[1];
+      const api = getVsCodeApi();
+      api?.postMessage({ type: 'saveToFile', payload: {
+        data: base64,
+        filename: 'mermaid-diagram.png',
+        mimeType: 'image/png',
+        encoding: 'base64',
+      } });
     };
-    img.src = url;
-  }, [mermaidSvg, mermaidZoom, theme]);
+    img.onerror = () => {
+      // Fallback: save SVG instead if PNG conversion fails
+      const api = getVsCodeApi();
+      api?.postMessage({ type: 'saveToFile', payload: {
+        data: mermaidSvg,
+        filename: 'mermaid-diagram.svg',
+        mimeType: 'image/svg+xml',
+        encoding: 'utf8',
+      } });
+    };
+    img.src = `data:image/svg+xml;base64,${encoded}`;
+  }, [mermaidSvg, theme]);
 
   // Generate base element properties
   const generateBaseElement = useCallback((
@@ -732,7 +786,6 @@ function App() {
               })));
             }
 
-            console.log(`Mermaid rendered: ${newElements.length} elements`);
           } catch (err) {
             console.error('Mermaid rendering failed:', err);
             postMessage('error', { message: `Mermaid rendering failed: ${err instanceof Error ? err.message : String(err)}` });

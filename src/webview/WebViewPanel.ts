@@ -129,6 +129,10 @@ export class ExcalidrawPanel {
           this.pendingScreenshot = null;
         }
         break;
+
+      case 'saveToFile':
+        this.handleSaveToFile(message.payload);
+        break;
     }
   }
 
@@ -184,6 +188,32 @@ export class ExcalidrawPanel {
     this.onUserPrompt = handler;
   }
 
+  private async handleSaveToFile(payload: { data: string; filename: string; mimeType: string; encoding?: 'utf8' | 'base64' }): Promise<void> {
+    const ext = payload.filename.split('.').pop() || 'bin';
+    const filterMap: Record<string, string> = {
+      'excalidraw': 'Excalidraw Files',
+      'svg': 'SVG Files',
+      'png': 'PNG Files',
+      'json': 'JSON Files',
+    };
+    const filters: Record<string, string[]> = {};
+    filters[filterMap[ext] || 'All Files'] = [ext];
+
+    const uri = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.file(payload.filename),
+      filters,
+    });
+
+    if (!uri) { return; }
+
+    const content = payload.encoding === 'base64'
+      ? Buffer.from(payload.data, 'base64')
+      : Buffer.from(payload.data, 'utf8');
+
+    await vscode.workspace.fs.writeFile(uri, content);
+    vscode.window.showInformationMessage(`Saved to ${uri.fsPath}`);
+  }
+
   public dispose(): void {
     ExcalidrawPanel.currentPanel = undefined;
 
@@ -209,7 +239,7 @@ export class ExcalidrawPanel {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${this.panel.webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; font-src ${this.panel.webview.cspSource}; img-src ${this.panel.webview.cspSource} data: blob:; connect-src data: blob:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${this.panel.webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${this.panel.webview.cspSource}; font-src ${this.panel.webview.cspSource}; img-src ${this.panel.webview.cspSource} data: blob:; connect-src data: blob:; worker-src ${this.panel.webview.cspSource} blob:;">
   <title>Excalidraw Copilot</title>
   <style>
     html, body, #root {
@@ -224,6 +254,7 @@ export class ExcalidrawPanel {
 <body>
   <div id="root"></div>
   <script nonce="${nonce}">
+    window.EXCALIDRAW_ASSET_PATH = "${webviewUri}/";
     window.WEBVIEW_BASE_URI = "${webviewUri}";
   </script>
   <script type="module" nonce="${nonce}" src="${webviewUri}/index.js"></script>

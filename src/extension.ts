@@ -665,16 +665,6 @@ async function runMermaidGeneration(panel: ExcalidrawPanel, diagramService: Sema
         currentMermaid = result.mermaidSyntax;
         outputChannel.appendLine(`Mermaid generated (${currentMermaid.length} chars)`);
         
-        // Save Mermaid to file for debugging/comparison
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        if (workspaceFolder) {
-          const mermaidUri = vscode.Uri.joinPath(workspaceFolder.uri, '.excalidraw-debug', 'last-mermaid.md');
-          const mermaidContent = `# Last Generated Mermaid Diagram\n\n\`\`\`mermaid\n${currentMermaid}\n\`\`\`\n`;
-          await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(workspaceFolder.uri, '.excalidraw-debug'));
-          await vscode.workspace.fs.writeFile(mermaidUri, Buffer.from(mermaidContent));
-          outputChannel.appendLine(`Mermaid saved to .excalidraw-debug/last-mermaid.md`);
-        }
-        
         progress.report({ message: '🖼️ Rendering Mermaid preview...' });
         await panel.sendMessage({ type: 'clearCanvas', payload: {} });
         await panel.sendMessage({ type: 'showMermaidPreview', payload: { mermaidSyntax: currentMermaid } } as any);

@@ -10,7 +10,7 @@ type MessageHandler = (message: { type: string; payload?: unknown }) => void;
 
 let vscodeApi: VsCodeApi | null = null;
 
-function getVsCodeApi(): VsCodeApi | null {
+export function getVsCodeApi(): VsCodeApi | null {
   if (vscodeApi) return vscodeApi;
   
   try {
@@ -53,7 +53,7 @@ export function useMessageBridge(onMessage: MessageHandler) {
     if (api) {
       api.postMessage({ type, payload });
     } else {
-      console.log('postMessage (dev mode):', { type, payload });
+      // Dev mode - no VS Code API available
     }
   }, []);
 

@@ -23,7 +23,6 @@ Prompt → LLM Think → LLM Generate Mermaid → Native Mermaid Preview → (op
 - **Speed:** ~15-20 sec (compact Mermaid syntax + native render)
 - **Detail:** 15-25 nodes with subgraphs, color-coded per type
 - **How it works:** The LLM outputs Mermaid flowchart syntax. The webview renders it natively as SVG with zoom/pan/export. User can optionally convert to Excalidraw via `@excalidraw/mermaid-to-excalidraw`.
-- **Debug:** Generated Mermaid saved to `.excalidraw-debug/last-mermaid.md`
 
 ### Key Files
 
