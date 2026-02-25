@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - **Mermaid export** — Save as SVG or PNG (2× resolution)
 - **Convert to Excalidraw** button — one-click conversion from Mermaid preview
 - **Smart project detection** — prompts like "diagram this project" auto-analyze workspace
+- **Diagram This Project** command — right-click or Command Palette to diagram the entire workspace architecture
 - **Continue Refining** — notification button to re-enter the feedback loop after pressing Escape
 - **Auto step renumbering** — inserting/removing steps in DSL automatically renumbers all labels
 - **`.tsx`/`.jsx` support** — React components, stores, and JSX files now included in code analysis

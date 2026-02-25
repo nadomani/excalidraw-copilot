@@ -30,7 +30,7 @@ The DSL pipeline gives fine-grained control over every visual detail (emojis, pe
 
 | Component | File | Role |
 |-----------|------|------|
-| Extension Entry | `src/extension.ts` | Commands, routing, folder/file analysis, feedback loops, project detection |
+| Extension Entry | `src/extension.ts` | Commands, routing, folder/file/project analysis, feedback loops, project detection |
 | LLM Service | `src/llm/SemanticDiagramService.ts` | Two-pass LLM generation, Mermaid prompts, diagram type detection |
 | DSL Types | `src/dsl/types.ts` | Semantic graph schema (nodes, connections, groups) |
 | Layout Engine | `src/layout/engine.ts` | Grid positioning, snake layout, arrow routing |

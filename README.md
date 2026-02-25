@@ -13,6 +13,43 @@ A VS Code extension that generates beautiful, editable diagrams from natural lan
 - 🧠 **Smart project detection** — type "diagram this project" and it auto-analyzes your workspace
 - ✏️ **Fully editable** — every diagram lands on an Excalidraw canvas you can hand-edit
 
+## 📸 See It in Action
+
+### 1. Open the Command Palette and launch "Generate Diagram"
+![Command Palette](media/01-command-palette.png)
+
+### 2. Type your prompt — any question or design request
+![Prompt Input](media/02-prompt-input.png)
+
+### 3. Pick your LLM model
+![Model Picker](media/03-model-picker.png)
+
+### 4. Get a beautiful process diagram (DSL pipeline)
+![DSL Process Diagram](media/04-dsl-process-diagram.png)
+
+### 5. Refine with conversational feedback
+![Feedback Loop](media/05-feedback-loop.png)
+
+### 6. Try an architecture prompt — "Design Twitter"
+![Architecture Prompt](media/06-architecture-prompt.png)
+
+### 7. DSL pipeline — rich vertical architecture with emojis, colors, and pro tips
+![DSL Twitter Architecture](media/07-dsl-twitter-architecture.png)
+
+### 8. Mermaid pipeline — clean layered architecture with subgraphs
+![Mermaid Twitter Architecture](media/08-mermaid-twitter-architecture.png)
+
+### 9. Right-click any file → "Diagram This File"
+![Right-click File](media/09-right-click-file.png)
+
+### 10. Right-click any folder → "Diagram This Folder" or "Diagram This Project"
+![Right-click Folder](media/10-right-click-folder.png)
+
+### 11. Full project architecture from real code analysis
+![Project Diagram](media/11-project-diagram.png)
+
+---
+
 ## 🚀 Quick Start
 
 ### 1. Clone & Install
@@ -42,7 +79,8 @@ In the **Extension Development Host** window:
 | Command | How to Trigger | What It Does |
 |---------|---------------|--------------|
 | **Generate Diagram** | `Ctrl+Shift+P` → "Generate Diagram" | Free-text prompt → diagram |
-| **Diagram This Folder** | Right-click folder in Explorer | Scans code, generates architecture |
+| **Diagram This Folder** | Right-click folder in Explorer | Scans that folder's code, generates architecture |
+| **Diagram This Project** | Right-click folder / `Ctrl+Shift+P` | Scans entire workspace, full project architecture |
 | **Diagram This File** | Right-click file in Explorer / editor | Diagrams a file's internal structure |
 | **Open Canvas** | `Ctrl+Shift+P` → "Open Canvas" | Opens a blank Excalidraw canvas |
 
@@ -62,7 +100,7 @@ Type prompts like **"diagram this project"** or **"show the architecture of this
 
 ### Diagram Your Code (Folder)
 1. Right-click any **folder** in Explorer → **"Excalidraw Copilot: Diagram This Folder"**
-2. The extension deep-scans your code:
+2. The extension deep-scans that folder's code:
    - **File structure** and directory layout
    - **Component roles** — entry points, controllers, services, models, components, state/stores, utilities
    - **Import/dependency graph** — who imports whom
@@ -72,6 +110,11 @@ Type prompts like **"diagram this project"** or **"show the architecture of this
    - **Infrastructure** — Dockerfile, docker-compose analysis
 3. Supports: `.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.cs`, `.java`, `.go`
 4. The analysis is sent to the LLM — you get a diagram of your **actual** codebase, not a generic template
+
+### Diagram Entire Project
+1. Right-click any **folder** → **"Excalidraw Copilot: Diagram This Project"** (or use Command Palette)
+2. Always scans the **entire workspace root** — gives you the full project architecture with all layers, components, and connections
+3. Great for getting a high-level overview of a new codebase
 
 ### Diagram a Single File
 1. Right-click a **file** → **"Excalidraw Copilot: Diagram This File"**
@@ -204,7 +247,7 @@ docs/                       # Plans and design documents
 
 **Mermaid preview not rendering**
 - Open WebView DevTools to check for console errors
-- The generated Mermaid syntax is saved to `.excalidraw-debug/last-mermaid.md` for inspection
+- Check the Output channel for the generated Mermaid syntax
 
 **Build errors on F5**
 - Run `npm run compile` manually to see actual errors

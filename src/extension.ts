@@ -145,7 +145,52 @@ Create a diagram showing:
     }
   );
 
-  context.subscriptions.push(openCommand, generateCommand, diagramFolderCommand, diagramFileCommand, outputChannel);
+  // Register diagram project command - diagram the entire workspace
+  const diagramProjectCommand = vscode.commands.registerCommand(
+    'excalidraw-copilot.diagramProject',
+    async () => {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        vscode.window.showWarningMessage('No workspace open. Open a project folder first.');
+        return;
+      }
+
+      const panel = ExcalidrawPanel.createOrShow(context.extensionUri);
+      setupPanel(panel);
+
+      vscode.window.showInformationMessage('📂 Analyzing entire project...');
+      const analysis = await analyzeFolder(workspaceFolder.uri);
+
+      const prompt = `Based on this deep code analysis, create a FULL PROJECT ARCHITECTURE DIAGRAM showing the complete structure of this codebase.
+
+${analysis}
+
+## DIAGRAM REQUIREMENTS:
+1. Show each detected component/module as a node with the RIGHT type:
+   - Entry points (app/server) → "service" type, semanticColor "primary", importance "high"
+   - Controllers/routes → "service" type, semanticColor "info"
+   - Services/business logic → "service" type, semanticColor "success"
+   - Models/entities → "database" type, semanticColor "warning"
+   - External databases (PostgreSQL, MongoDB, etc.) → "database" type, semanticColor "danger"
+   - External caches (Redis) → "cache" type, semanticColor "warning"
+   - Message queues (Kafka, RabbitMQ) → "queue" type, semanticColor "secondary"
+   - External APIs/services → "external" type, semanticColor "neutral"
+   - React/UI components → "process" type, semanticColor "info"
+   - State management (Redux, stores) → "process" type, semanticColor "warning"
+   - Config/infrastructure → "process" type, semanticColor "secondary"
+2. Show REAL dependencies as arrows based on the import graph
+3. Group related components (e.g., all controllers in one group, all services in another)
+4. Use direction "TB" (top-to-bottom) for layered architecture
+5. Use descriptive labels matching the actual file/class names
+6. Add a note summarizing the architecture pattern (MVC, microservices, monolith, etc.)
+7. Use row/column hints to create clean layers: entry at top, controllers next, services below, data layer at bottom
+8. Be COMPREHENSIVE — include ALL major components found in the analysis`;
+
+      await runGeneration(panel, prompt);
+    }
+  );
+
+  context.subscriptions.push(openCommand, generateCommand, diagramFolderCommand, diagramFileCommand, diagramProjectCommand, outputChannel);
 }
 
 // Detect if the user's prompt is asking about "this project" / "this codebase"
@@ -153,6 +198,10 @@ Create a diagram showing:
 function isProjectPrompt(prompt: string): boolean {
   // If the prompt already has analysis sections, it came from right-click folder — skip
   if (prompt.includes('## Project Structure') || prompt.includes('## Components') || prompt.includes('## DIAGRAM REQUIREMENTS')) {
+    return false;
+  }
+  // If prompt contains file content (from diagramFile command), skip
+  if (prompt.includes('## File:') && prompt.includes('```')) {
     return false;
   }
   const lower = prompt.toLowerCase();
