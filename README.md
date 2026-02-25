@@ -8,6 +8,7 @@ A VS Code extension that generates beautiful, editable diagrams from natural lan
 - 📂 **Code-aware** — right-click any folder or file to diagram its real architecture
 - 🔄 **Conversational refinement** — chat to refine: *"add a caching layer"*, *"fix step 3"*
 - 🧜 **Dual pipeline** — Mermaid native preview for architecture, Semantic DSL for processes
+- 📊 **Sequence diagrams** — ask for one directly or convert any diagram via refinement
 - 🔍 **Mermaid zoom, pan & export** — Ctrl+Scroll to zoom, export as SVG or PNG
 - 🤖 **Model picker** — choose Claude Sonnet *(recommended for architecture)*, GPT-4o, Claude Opus *(best for detailed process flows)*, or any Copilot model
 - 🧠 **Smart project detection** — type "diagram this project" and it auto-analyzes your workspace
@@ -49,6 +50,9 @@ A VS Code extension that generates beautiful, editable diagrams from natural lan
 
 ### 11. Full project architecture from real code analysis
 ![Project Diagram](media/11-project-diagram.png)
+
+### 12. Sequence diagrams — just ask for one!
+![Sequence Diagram](media/12-sequence-diagram.png)
 
 ---
 
@@ -121,6 +125,13 @@ Type prompts like **"diagram this project"** or **"show the architecture of this
 ### Diagram a Single File
 1. Right-click a **file** → **"Excalidraw Copilot: Diagram This File"**
 2. Shows classes, interfaces, functions, inheritance, method calls, and external dependencies
+
+### Sequence Diagrams
+The Mermaid pipeline supports sequence diagrams out of the box. Two ways to get one:
+1. **From scratch** — use "Generate Diagram", type a prompt like *"Draw a sequence diagram of user authentication with JWT"*, and pick the **Mermaid** pipeline
+2. **Via refinement** — after any diagram, use the feedback loop: *"now show this as a sequence diagram"* — the LLM will regenerate it as a Mermaid sequence diagram
+
+Great for showing interactions between components, API call flows, and request/response patterns.
 
 ### Conversational Refinement
 After every diagram, a feedback popup appears — refine by chatting:
