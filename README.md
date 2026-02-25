@@ -9,9 +9,11 @@ A VS Code extension that generates beautiful, editable diagrams from natural lan
 - 🔄 **Conversational refinement** — chat to refine: *"add a caching layer"*, *"fix step 3"*
 - 🧜 **Dual pipeline** — Mermaid native preview for architecture, Semantic DSL for processes
 - 🔍 **Mermaid zoom, pan & export** — Ctrl+Scroll to zoom, export as SVG or PNG
-- 🤖 **Model picker** — choose Claude Opus, Sonnet, GPT-4o, or any Copilot-available model
+- 🤖 **Model picker** — choose Claude Sonnet *(recommended for architecture)*, GPT-4o, Claude Opus *(best for detailed process flows)*, or any Copilot model
 - 🧠 **Smart project detection** — type "diagram this project" and it auto-analyzes your workspace
 - ✏️ **Fully editable** — every diagram lands on an Excalidraw canvas you can hand-edit
+
+> **💡 Model tip:** For architecture/process diagrams, use **Sonnet** or **GPT-4o** — they produce cleaner, more readable layouts. **Opus** shines on detailed process flows and step-by-step tutorials where extra detail is a plus.
 
 ## 📸 See It in Action
 
@@ -135,10 +137,12 @@ After every diagram, a feedback popup appears — refine by chatting:
 
 ### Model Selection
 Every generation starts with a model picker:
-- **Claude Opus** — Best quality, most detailed and accurate diagrams
-- **Claude Sonnet** — Good balance of speed and quality
-- **GPT-4o** — Fast, decent quality
+- **Claude Sonnet** — ⭐ Recommended for architecture diagrams. Clean, well-structured output
+- **GPT-4o** — ⭐ Also great for architecture. Fast and produces readable layouts
+- **Claude Opus** — Best for detailed process diagrams and step-by-step flows. Can be *too* detailed for architecture (many nodes/connections), so prefer Sonnet or GPT-4o for system design
 - Any other model available through your Copilot subscription
+
+> **💡 Tip:** For architecture diagrams ("Design Twitter", "Diagram this project"), use **Sonnet** or **GPT-4o** — they produce cleaner, more readable layouts. Save **Opus** for detailed process flows and tutorials where extra detail is a plus.
 
 ### Pipeline Selection (Mermaid vs DSL)
 After choosing a model, you pick a **rendering pipeline**. The extension recommends one based on your prompt:
