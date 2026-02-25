@@ -601,14 +601,14 @@ Show ONLY what actually exists in this codebase. Do NOT invent technologies or c
   
   const pipelineItems = [
     {
-      label: suggestedMermaid ? '$(star) Mermaid (Recommended)' : 'Mermaid',
-      description: 'Best for architecture — uses Mermaid layout engine',
-      pipeline: 'mermaid' as const
-    },
-    {
       label: suggestedMermaid ? 'Semantic DSL' : '$(star) Semantic DSL (Recommended)',
       description: 'Best for processes/recipes — custom layout with colors & emojis',
       pipeline: 'dsl' as const
+    },
+    {
+      label: suggestedMermaid ? '$(star) Mermaid (Recommended)' : 'Mermaid',
+      description: 'Best for architecture — uses Mermaid layout engine',
+      pipeline: 'mermaid' as const
     }
   ];
 
