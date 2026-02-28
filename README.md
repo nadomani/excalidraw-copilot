@@ -1,6 +1,13 @@
 # Excalidraw Copilot 🎨
 
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/nadomani.excalidraw-copilot?label=VS%20Code%20Marketplace&logo=visual-studio-code&color=blue)](https://marketplace.visualstudio.com/items?itemName=nadomani.excalidraw-copilot)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/nadomani.excalidraw-copilot?color=brightgreen)](https://marketplace.visualstudio.com/items?itemName=nadomani.excalidraw-copilot)
+[![GitHub stars](https://img.shields.io/github/stars/nadomani/excalidraw-copilot?style=social)](https://github.com/nadomani/excalidraw-copilot)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A VS Code extension that generates beautiful, editable diagrams from natural language using your GitHub Copilot subscription. No API keys needed — just describe what you want.
+
+> ⭐ **If you find this useful, [star the repo](https://github.com/nadomani/excalidraw-copilot) — it helps others discover it!**
 
 ## ✨ Features at a Glance
 
@@ -274,6 +281,19 @@ docs/                       # Plans and design documents
 - **Complex DSL diagrams (20+ nodes)** — Arrow overlaps can occur on dense diagrams with many cross-layer connections. Use the feedback loop to simplify or regroup.
 - **LLM variability** — Results vary by model. Claude Opus produces the most detailed and accurate diagrams. Smaller models may oversimplify or hallucinate components.
 
+## 🤝 Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for architecture details, development setup, and known issues to work on.
+
+Check out the [open issues](https://github.com/nadomani/excalidraw-copilot/issues) — look for the `good first issue` label if you're new.
+
 ## 📄 License
 
 MIT
+
+---
+
+<p align="center">
+  Made with ❤️ for developers who think visually.<br/>
+  <a href="https://github.com/nadomani/excalidraw-copilot">⭐ Star on GitHub</a> · <a href="https://marketplace.visualstudio.com/items?itemName=nadomani.excalidraw-copilot">📦 Install from Marketplace</a>
+</p>
