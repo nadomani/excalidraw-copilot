@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.2] — 2026-02-28
+
+### Changed
+- Added GitHub badges (Marketplace, installs, stars, license) to README
+- Added star-the-repo call-to-action to README
+- Added Contributing section with link to good first issues
+- Added GitHub issue templates (bug report, feature request, good first issue)
+- Added FUNDING.yml for GitHub Sponsors
+- Updated marketplace keywords: added `sequence-diagram`, `system-design`
+- Added sequence diagram screenshots to README
+
+## [0.2.1] — 2026-02-25
+
+### Changed
+- DSL pipeline now listed first in pipeline picker (recommended for most prompts)
+- Updated marketplace keywords
+
 ## [0.2.0] — 2026-02-24
 
 ### Added
