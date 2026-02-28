@@ -14,15 +14,15 @@
   ],
   "keywords": [
     "excalidraw",
-    "natural-language",
-    "code-visualization",
     "diagram",
     "ai",
     "copilot",
     "mermaid",
     "architecture",
     "flowchart",
-    "drawing"
+    "sequence-diagram",
+    "system-design",
+    "code-visualization"
   ],
   "activationEvents": [],
   "repository": {
