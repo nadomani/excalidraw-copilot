@@ -2,7 +2,7 @@
   "name": "excalidraw-copilot",
   "displayName": "Excalidraw Copilot",
   "description": "Generate beautiful diagrams from natural language using GitHub Copilot — process flows, architecture diagrams, and code visualization",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "nadomani",
   "engines": {
     "vscode": "^1.85.0"
