@@ -1,8 +1,8 @@
 {
   "name": "excalidraw-copilot",
   "displayName": "Excalidraw Copilot",
-  "description": "Generate beautiful diagrams from natural language using GitHub Copilot — process flows, architecture diagrams, and code visualization",
-  "version": "0.2.2",
+  "description": "Generate beautiful diagrams from natural language using GitHub Copilot — type @excalidraw in chat or right-click any file/folder",
+  "version": "0.3.0",
   "publisher": "nadomani",
   "engines": {
     "vscode": "^1.85.0"
@@ -17,6 +17,7 @@
     "diagram",
     "ai",
     "copilot",
+    "chat-participant",
     "mermaid",
     "architecture",
     "flowchart",
@@ -80,6 +81,41 @@
         }
       ]
     },
+    "chatParticipants": [
+      {
+        "id": "excalidraw-copilot.chat",
+        "fullName": "Excalidraw Copilot",
+        "name": "excalidraw",
+        "description": "Generate beautiful diagrams from natural language — architecture, process flows, code visualization",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "new",
+            "description": "Start a fresh diagram (ignore previous conversation)"
+          },
+          {
+            "name": "diagram",
+            "description": "Generate a diagram from a description"
+          },
+          {
+            "name": "architecture",
+            "description": "Generate an architecture diagram (Mermaid pipeline)"
+          },
+          {
+            "name": "file",
+            "description": "Diagram the structure of a file (use with #file reference)"
+          },
+          {
+            "name": "folder",
+            "description": "Diagram a folder's architecture"
+          },
+          {
+            "name": "project",
+            "description": "Diagram the entire workspace project"
+          }
+        ]
+      }
+    ],
     "configuration": {
       "title": "Excalidraw Copilot",
       "properties": {}

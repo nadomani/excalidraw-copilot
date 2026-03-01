@@ -11,19 +11,88 @@ A VS Code extension that generates beautiful, editable diagrams from natural lan
 
 ## ✨ Features at a Glance
 
+- 💬 **`@excalidraw` Chat Participant** — type `@excalidraw` in Copilot Chat and just describe what you want
 - 🗣️ **Natural language → Diagram** — describe it, see it
-- 📂 **Code-aware** — right-click any folder or file to diagram its real architecture
-- 🔄 **Conversational refinement** — chat to refine: *"add a caching layer"*, *"fix step 3"*
-- 🧜 **Dual pipeline** — Mermaid native preview for architecture, Semantic DSL for processes
+- 📂 **Code-aware** — right-click any folder or file, or use `/folder`, `/file`, `/project` in chat
+- 🔄 **Conversational refinement** — follow-up messages refine the diagram in-place
+- 🧜 **Dual pipeline** — Mermaid for architecture, Semantic DSL for processes — auto-detected or use `--mermaid`/`--dsl`
 - 📊 **Sequence diagrams** — ask for one directly or convert any diagram via refinement
 - 🔍 **Mermaid zoom, pan & export** — Ctrl+Scroll to zoom, export as SVG or PNG
-- 🤖 **Model picker** — choose Claude Sonnet *(recommended for architecture)*, GPT-4o, Claude Opus *(best for detailed process flows)*, or any Copilot model
+- 🤖 **Model picker** — choose any Copilot model from the Chat panel or Command Palette
 - 🧠 **Smart project detection** — type "diagram this project" and it auto-analyzes your workspace
 - ✏️ **Fully editable** — every diagram lands on an Excalidraw canvas you can hand-edit
 
 > **💡 Model tip:** For architecture/process diagrams, use **Sonnet** or **GPT-4o** — they produce cleaner, more readable layouts. **Opus** shines on detailed process flows and step-by-step tutorials where extra detail is a plus.
 
 ## 📸 See It in Action
+
+### Chat Participant — `@excalidraw` in Copilot Chat
+
+> Type `@excalidraw` directly in the Copilot Chat panel — no command palette needed.
+
+#### 1. Type `@excalidraw` and see all available slash commands
+![Slash Commands](media/chat-slash-commands.png)
+
+#### 2. Type your prompt — e.g. `@excalidraw How do LLMs work?`
+![Chat Prompt](media/chat-prompt-input.png)
+
+#### 3. Watch the progress stream in the chat panel
+![Planning](media/chat-progress-planning.png)
+![Creating](media/chat-progress-creating.png)
+
+#### 4. Get a beautiful DSL process diagram on the Excalidraw canvas
+![DSL Result](media/chat-dsl-result-llm.png)
+
+#### 5. Followup suggestions appear — click one or type your own refinement
+![Followup Suggestions](media/chat-followup-suggestions.png)
+
+#### 6. Use `/architecture` to force the Mermaid pipeline
+![Architecture Command](media/chat-architecture-command.png)
+
+#### 7. Mermaid pipeline — clean layered architecture with subgraphs
+![Mermaid Architecture](media/chat-mermaid-architecture.png)
+
+#### 8. Refine the Mermaid diagram — "change to sequence diagram"
+![Refine to Sequence](media/chat-refine-to-sequence.png)
+
+#### 9. The result: a detailed Mermaid sequence diagram showing component interactions
+![Sequence Diagram Result](media/chat-sequence-diagram-result.png)
+
+#### 10. Use `/diagram` to force the Semantic DSL pipeline
+![Diagram Command](media/chat-diagram-command.png)
+
+#### 11. DSL pipeline — rich process diagram with emojis, colors, and pro tips
+![DSL Elasticsearch](media/chat-dsl-result-elasticsearch.png)
+
+#### 12. Refine by typing follow-up messages — "Add more details to diagram"
+![Refinement Input](media/chat-refinement-input.png)
+
+#### 13. Refined diagram with additional detail, groups, and architecture notes
+![Refinement Result](media/chat-refinement-result.png)
+
+#### 14. Use `--dsl` or `--mermaid` flags to override any command's default pipeline
+![Folder DSL Flag](media/chat-folder-dsl-flag.png)
+![Folder Mermaid Flag](media/chat-folder-mermaid-flag.png)
+
+#### 15. Use `/file` with a `#file` reference to diagram a specific file
+![File Command](media/chat-file-command.png)
+
+#### 16. Use `/project` to diagram the entire workspace architecture
+![Project Command](media/chat-project-command.png)
+
+#### 17. Use `/new` to start a fresh diagram (ignores previous conversation)
+![New Command](media/chat-new-command.png)
+
+#### 18. Ask any question — even general knowledge — and get a visual diagram
+![General Question](media/chat-general-question.png)
+
+#### 19. The result: a beautiful step-by-step process with emojis, colors, and pro tips
+![Milk Process Result](media/chat-milk-process-result.png)
+
+#### 20. Contextual followup suggestions adapt to the diagram topic
+![Contextual Followups](media/chat-contextual-followups.png)
+
+### Right-Click & Command Palette (Classic Flow)
 
 ### 1. Open the Command Palette and launch "Generate Diagram"
 ![Command Palette](media/01-command-palette.png)
@@ -80,6 +149,13 @@ Press **F5** in VS Code. This opens an Extension Development Host window with th
 
 ### 3. Generate Your First Diagram
 In the **Extension Development Host** window:
+
+**Option A — Chat Participant:**
+1. Open the Copilot Chat panel (`Ctrl+Shift+I`)
+2. Type `@excalidraw design a microservices architecture`
+3. The diagram generates and opens automatically
+
+**Option B — Command Palette:**
 1. `Ctrl+Shift+P` → **"Excalidraw Copilot: Generate Diagram"**
 2. Pick a model (Opus = best quality, Sonnet = fast)
 3. Choose a pipeline (Mermaid or Semantic DSL)
@@ -87,7 +163,56 @@ In the **Extension Development Host** window:
 5. A feedback popup appears — describe changes or press Escape to finish
 6. If you close the popup, a **"Continue Refining"** button lets you re-enter anytime
 
-## 📋 Commands
+## 💬 Chat Participant (`@excalidraw`)
+
+Type `@excalidraw` in the **Copilot Chat panel** to generate diagrams conversationally. The model is selected from the Chat panel's model dropdown — no QuickPick needed.
+
+### Slash Commands
+
+| Command | Example | What It Does |
+|---------|---------|--------------|
+| *(none)* | `@excalidraw design a Twitter architecture` | Auto-detects the best pipeline and generates a diagram |
+| `/new` | `@excalidraw /new coffee brewing process` | Start a fresh diagram (ignores previous conversation) |
+| `/diagram` | `@excalidraw /diagram how cheese is made` | Force the **Semantic DSL** pipeline |
+| `/architecture` | `@excalidraw /architecture microservices with API gateway` | Force the **Mermaid** pipeline |
+| `/file` | `@excalidraw /file #file:src/server.ts` | Diagram a file's internal structure (classes, functions, imports) |
+| `/folder` | `@excalidraw /folder src/api` | Diagram a folder's architecture (scans code, dependencies, imports) |
+| `/project` | `@excalidraw /project` | Diagram the entire workspace project |
+
+### Pipeline Override (`--mermaid` / `--dsl`)
+
+By default, `/file` uses DSL and `/folder`/`/project` use Mermaid. Override with a flag:
+
+```
+@excalidraw /folder src/models --dsl         → DSL instead of Mermaid
+@excalidraw /project --dsl                   → DSL instead of Mermaid
+@excalidraw /file --mermaid #file:server.ts  → Mermaid instead of DSL
+@excalidraw draw a coffee process --mermaid  → force Mermaid on free-text
+```
+
+No flag = sensible default for that command.
+
+### Conversational Refinement
+
+After generating a diagram, just keep typing — follow-up messages automatically refine the current diagram:
+
+```
+User: @excalidraw design a microservices architecture
+Bot:  ✅ Diagram ready! 8 nodes, 7 connections
+      💬 Type any changes you want or use /new to start fresh.
+
+User: add a caching layer between API and database
+Bot:  ✅ Diagram updated!
+
+User: /new how to make cheese step by step
+Bot:  ✅ Diagram ready! (fresh diagram, previous one ignored)
+```
+
+Followup suggestions are **contextual** — architecture diagrams suggest things like "Add a caching layer", while recipe/process diagrams suggest things like "Add ingredient quantities".
+
+## 📋 Commands (Right-Click & Command Palette)
+
+The classic flow uses the Command Palette and right-click context menus. It includes a model picker and pipeline picker (QuickPick dialogs).
 
 | Command | How to Trigger | What It Does |
 |---------|---------------|--------------|
@@ -98,6 +223,10 @@ In the **Extension Development Host** window:
 | **Open Canvas** | `Ctrl+Shift+P` → "Open Canvas" | Opens a blank Excalidraw canvas |
 
 ## 🎯 Complete Usage Guide
+
+> **Two ways to use Excalidraw Copilot:**
+> 1. **Chat Participant** — type `@excalidraw` in the Copilot Chat panel. See the [Chat Participant section](#-chat-participant-excalidraw) above.
+> 2. **Command Palette / Right-click** — classic flow with QuickPick dialogs. Detailed below.
 
 ### Free-Text Prompts
 Type anything — the extension figures out the best approach:
@@ -134,14 +263,15 @@ Type prompts like **"diagram this project"** or **"show the architecture of this
 2. Shows classes, interfaces, functions, inheritance, method calls, and external dependencies
 
 ### Sequence Diagrams
-The Mermaid pipeline supports sequence diagrams out of the box. Two ways to get one:
-1. **From scratch** — use "Generate Diagram", type a prompt like *"Draw a sequence diagram of user authentication with JWT"*, and pick the **Mermaid** pipeline
-2. **Via refinement** — after any diagram, use the feedback loop: *"now show this as a sequence diagram"* — the LLM will regenerate it as a Mermaid sequence diagram
+The Mermaid pipeline supports sequence diagrams out of the box. Three ways to get one:
+1. **From chat** — type `@excalidraw /architecture draw a sequence diagram of user authentication with JWT`
+2. **From scratch** — use "Generate Diagram", type a prompt like *"Draw a sequence diagram of user authentication with JWT"*, and pick the **Mermaid** pipeline
+3. **Via refinement** — after any diagram, type *"now show this as a sequence diagram"* — works in both chat and the Command Palette feedback loop
 
 Great for showing interactions between components, API call flows, and request/response patterns.
 
 ### Conversational Refinement
-After every diagram, a feedback popup appears — refine by chatting:
+After every diagram, you can refine by describing changes:
 ```
 "Add a caching layer between API and database"
 "Step 3 is wrong — it should be pasteurize not boil"
@@ -149,12 +279,18 @@ After every diagram, a feedback popup appears — refine by chatting:
 "Add a step after step 2 for validation"
 "Group all the databases together"
 ```
+
+**In Chat:** just keep typing — follow-up messages automatically refine the current diagram. Use `/new` to start fresh.
+
+**In Command Palette:** a feedback popup appears after each diagram:
 - Up to **10 refinement rounds** per session
 - Press **Escape** to finish — a **"Continue Refining"** notification lets you re-enter the loop anytime
 - Step numbers are **automatically renumbered** when you add or remove steps
 
 ### Model Selection
-Every generation starts with a model picker:
+**In Chat:** select the model from the Chat panel's model dropdown (top of the chat window).
+
+**In Command Palette:** a model picker appears before each generation:
 - **Claude Sonnet** — ⭐ Recommended for architecture diagrams. Clean, well-structured output
 - **GPT-4o** — ⭐ Also great for architecture. Fast and produces readable layouts
 - **Claude Opus** — Best for detailed process diagrams and step-by-step flows. Can be *too* detailed for architecture (many nodes/connections), so prefer Sonnet or GPT-4o for system design
@@ -163,7 +299,9 @@ Every generation starts with a model picker:
 > **💡 Tip:** For architecture diagrams ("Design Twitter", "Diagram this project"), use **Sonnet** or **GPT-4o** — they produce cleaner, more readable layouts. Save **Opus** for detailed process flows and tutorials where extra detail is a plus.
 
 ### Pipeline Selection (Mermaid vs DSL)
-After choosing a model, you pick a **rendering pipeline**. The extension recommends one based on your prompt:
+**In Chat:** auto-detected from the prompt, or forced with `/architecture`, `/diagram`, `--mermaid`, `--dsl`.
+
+**In Command Palette:** after choosing a model, you pick a **rendering pipeline**. The extension recommends one based on your prompt:
 
 | | 🎨 Semantic DSL | 🧜 Mermaid |
 |--|-----------------|-----------|
@@ -222,7 +360,11 @@ npm run dev            # Dev mode with hot reload
 ### Project Structure
 ```
 src/
-  extension.ts              # Commands, folder/file analysis, pipeline routing, feedback loops
+  extension.ts              # Commands, pipeline routing, feedback loops
+  chat/
+    ChatParticipant.ts      # @excalidraw Chat Participant — slash commands, refinement
+  analysis/
+    folderAnalysis.ts       # Folder/file/project analysis, prompt builders, role detection
   llm/
     SemanticDiagramService.ts  # Two-pass LLM generation (think → generate), refinement, Mermaid prompts
   dsl/
@@ -233,6 +375,8 @@ src/
   render/
     shapes.ts               # Semantic graph → Excalidraw elements
     styles.ts               # Color palette (7 colors × 3 shades)
+  execution/
+    StateManager.ts         # Canvas state management
   webview/
     WebViewPanel.ts         # VS Code WebView panel management
   types/
@@ -242,7 +386,6 @@ webview-ui/
     App.tsx                 # React app: Excalidraw canvas + Mermaid preview mode
     hooks/useMessageBridge.ts  # WebView ↔ Extension messaging hook
 docs/                       # Plans and design documents
-.ai/                        # AI context (architecture, conventions)
 ```
 
 ## 🐛 Troubleshooting
@@ -258,7 +401,7 @@ docs/                       # Plans and design documents
 
 **Diagram shows generic architecture (not my project)**
 - Use right-click → "Diagram This Folder" for code-aware analysis
-- Or type "diagram this project" in the prompt bar — it auto-detects and scans your workspace
+- Or type `@excalidraw /project` in Chat, or "diagram this project" in the prompt bar — it auto-detects and scans your workspace
 - Check the Output channel for `Project prompt detection: true`
 
 **Diagram looks wrong or incomplete**
