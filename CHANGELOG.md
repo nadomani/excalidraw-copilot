@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] — 2026-03-01
+
+### Added
+- **`@excalidraw` Chat Participant** — type `@excalidraw` in the Copilot Chat panel to generate diagrams conversationally
+- **6 slash commands** — `/new`, `/diagram`, `/architecture`, `/file`, `/folder`, `/project`
+- **Pipeline override flags** — `--mermaid` and `--dsl` flags work with any command to override the default pipeline
+- **Conversational refinement in chat** — follow-up messages automatically refine the current diagram
+- **`/new` command** — start a fresh diagram, bypassing refinement even when there's a previous diagram in history
+- **Contextual followup suggestions** — followups change based on the diagram topic (architecture vs. recipe vs. process)
+- **Smart project detection in chat** — typing "diagram this project" in chat auto-analyzes the workspace
+
+### Changed
+- Extracted analysis functions into `src/analysis/folderAnalysis.ts` for reuse by both flows
+- Extracted chat handler into `src/chat/ChatParticipant.ts`
+- Reduced `src/extension.ts` by ~384 lines of duplicated code
+- Pipeline detection in chat uses original prompt text (not enriched), fixing false Mermaid detection
+- Removed duplicate "Planning diagram structure..." progress message in chat flow
+
+### Unchanged
+- Right-click and Command Palette flows continue working as before
+
 ## [0.2.2] — 2026-02-28
 
 ### Changed

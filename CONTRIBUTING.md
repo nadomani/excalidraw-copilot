@@ -4,7 +4,7 @@
 
 ### Dual Pipeline Design
 
-Excalidraw Copilot uses **two rendering pipelines**, chosen by the user after each prompt:
+Excalidraw Copilot uses **two rendering pipelines**. In the Chat Participant, the pipeline is auto-detected from the prompt (or forced with `/architecture`, `/diagram`, `--mermaid`, `--dsl`). In the Command Palette flow, the user picks via a QuickPick dialog:
 
 #### 🎨 Semantic DSL Pipeline (Process Diagrams)
 ```
@@ -28,7 +28,9 @@ Prompt → LLM Think → LLM Generate Mermaid → Native Mermaid Preview → (op
 
 | File | Purpose |
 |------|---------|
-| `src/extension.ts` | Commands, pipeline routing, folder/file analysis, feedback loops, project detection |
+| `src/extension.ts` | Commands, pipeline routing, feedback loops, project detection |
+| `src/chat/ChatParticipant.ts` | `@excalidraw` Chat Participant — slash commands, refinement, contextual followups |
+| `src/analysis/folderAnalysis.ts` | Folder/file/project analysis, prompt builders, role detection, import graph |
 | `src/llm/SemanticDiagramService.ts` | Two-pass LLM generation (think → generate), Mermaid prompts, refinement, pipeline detection |
 | `src/dsl/types.ts` | TypeScript types for the semantic graph DSL |
 | `src/dsl/prompt.ts` | System prompts with schema + examples for the LLM |
@@ -52,7 +54,7 @@ Key message types:
 - `zoomToFit` — auto-zoom after rendering
 
 ### Code Analysis (Folder Scanner)
-`analyzeFolder()` in `extension.ts` scans:
+`analyzeFolder()` in `src/analysis/folderAnalysis.ts` scans:
 - **Source patterns:** `.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.cs`, `.java`, `.go`
 - **Config patterns:** `package.json`, `requirements.txt`, `*.csproj`, `Dockerfile`, etc.
 - **Role detection:** entry point, controller, service, model, component, state/store, middleware, utility
@@ -138,25 +140,30 @@ groupPadding: 35
 
 ## Future Enhancements
 
-### Priority 1: Publish Extension
-1. Package with `vsce` and publish to VS Code Marketplace
-2. Add extension icon and marketplace metadata
-3. Write marketplace description with screenshots
+### Priority 1: Save & Reopen as `.excalidraw` Files
+1. Auto-save generated diagrams as `.excalidraw` files in the workspace
+2. Add "Save Diagram" and "Open Diagram" commands
+3. Support the standard Excalidraw JSON format
+4. Register as file editor for `.excalidraw` files
 
-### Priority 2: Architecture Diagram Quality
+### Priority 2: Streaming Diagram Rendering
+1. Parse partial JSON/Mermaid as the LLM streams chunks
+2. For DSL: render nodes as they're parsed (even before connections)
+3. For Mermaid: show a "building..." preview that updates every few seconds
+
+### Priority 3: Architecture Diagram Quality
 1. Extend DSL with "list items" inside groups
 2. Add `fontFamily: 3` option for monospace
 3. Tighter group rendering — groups as visual containers
 4. Nested subgraphs in Mermaid for complex systems
 
-### Priority 3: More Visualization Types
-1. Sequence diagrams — vertical timeline with swim-lanes
-2. Class diagrams — UML-style with methods/properties
-3. ER diagrams — entity-relationship with cardinality
-4. Mind maps — radial layout from center
+### Priority 4: More Visualization Types
+1. Class diagrams — UML-style with methods/properties
+2. ER diagrams — entity-relationship with cardinality
+3. Mind maps — radial layout from center
 
-### Priority 4: Polish
+### Priority 5: Polish
 1. Re-enable visual refinement loop
 2. Undo in feedback loop ("go back to previous version")
 3. Remember model choice across sessions
-4. Live LLM streaming progress
+4. Diagram from code selection (select → right-click → "Diagram This")
