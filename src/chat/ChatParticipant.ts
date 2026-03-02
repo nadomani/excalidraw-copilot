@@ -16,6 +16,7 @@ import {
   buildFolderAnalysisPrompt,
   buildFileAnalysisPrompt,
   buildProjectAnalysisPrompt,
+  buildSelectionAnalysisPrompt,
 } from '../analysis/folderAnalysis';
 
 // Metadata key for storing diagram state across turns
@@ -45,11 +46,12 @@ export function registerChatParticipant(
     outputChannel.appendLine(`Chat history length: ${chatContext.history.length}`);
 
     try {
-      // Check if this is a follow-up refinement (no slash command, has previous diagram)
+      // Check if this is a follow-up refinement (no slash command or /diagram from followup, has previous diagram)
       const previousState = getPreviousState(chatContext);
       outputChannel.appendLine(`Previous state found: ${previousState ? previousState.pipeline : 'none'}`);
 
-      if (previousState && !request.command && request.prompt.trim()) {
+      if (previousState && request.prompt.trim() &&
+          (!request.command || request.command === 'diagram')) {
         outputChannel.appendLine('Routing to refinement handler');
         return await handleRefinement(request, response, token, previousState, context, outputChannel, stateManager);
       }
@@ -69,6 +71,8 @@ export function registerChatParticipant(
           return await handleFolder(request, response, token, context, outputChannel, stateManager);
         case 'project':
           return await handleProject(request, response, token, context, outputChannel, stateManager);
+        case 'selection':
+          return await handleSelection(request, response, token, context, outputChannel, stateManager);
         default:
           // Auto-detect pipeline from prompt
           return await handleGeneration(request, response, token, context, outputChannel, stateManager, 'auto');
@@ -103,34 +107,34 @@ function getContextualFollowups(originalPrompt: string, pipeline: 'dsl' | 'merma
   const followups: vscode.ChatFollowup[] = [];
 
   // Always offer "add more detail"
-  followups.push({ prompt: 'Add more detail to the diagram' });
+  followups.push({ prompt: 'Add more detail to the diagram', command: 'diagram' });
 
   if (pipeline === 'mermaid') {
     // Architecture-style followups
     if (/\b(api|service|server|backend|micro)\b/.test(lower)) {
-      followups.push({ prompt: 'Add a caching layer' });
-      followups.push({ prompt: 'Add error handling and retry flows' });
+      followups.push({ prompt: 'Add a caching layer', command: 'diagram' });
+      followups.push({ prompt: 'Add error handling and retry flows', command: 'diagram' });
     } else if (/\b(database|data|storage|model)\b/.test(lower)) {
-      followups.push({ prompt: 'Add read replicas and failover' });
-      followups.push({ prompt: 'Show the data flow between components' });
+      followups.push({ prompt: 'Add read replicas and failover', command: 'diagram' });
+      followups.push({ prompt: 'Show the data flow between components', command: 'diagram' });
     } else if (/\b(project|codebase|folder|workspace)\b/.test(lower)) {
-      followups.push({ prompt: 'Group components by layer' });
-      followups.push({ prompt: 'Highlight the main entry points' });
+      followups.push({ prompt: 'Group components by layer', command: 'diagram' });
+      followups.push({ prompt: 'Highlight the main entry points', command: 'diagram' });
     } else {
-      followups.push({ prompt: 'Add labels to all connections' });
-      followups.push({ prompt: 'Group related components together' });
+      followups.push({ prompt: 'Add labels to all connections', command: 'diagram' });
+      followups.push({ prompt: 'Group related components together', command: 'diagram' });
     }
   } else {
     // DSL-style followups (processes, recipes, flows)
     if (/\b(process|flow|step|pipeline|workflow)\b/.test(lower)) {
-      followups.push({ prompt: 'Add error/failure paths' });
-      followups.push({ prompt: 'Add timing estimates to each step' });
+      followups.push({ prompt: 'Add error/failure paths', command: 'diagram' });
+      followups.push({ prompt: 'Add timing estimates to each step', command: 'diagram' });
     } else if (/\b(recipe|cook|food|make|brew|bake)\b/.test(lower)) {
-      followups.push({ prompt: 'Add ingredient quantities' });
-      followups.push({ prompt: 'Add tips and warnings for tricky steps' });
+      followups.push({ prompt: 'Add ingredient quantities', command: 'diagram' });
+      followups.push({ prompt: 'Add tips and warnings for tricky steps', command: 'diagram' });
     } else {
-      followups.push({ prompt: 'Add decision points and branches' });
-      followups.push({ prompt: 'Use different colors for each phase' });
+      followups.push({ prompt: 'Add decision points and branches', command: 'diagram' });
+      followups.push({ prompt: 'Use different colors for each phase', command: 'diagram' });
     }
   }
 
@@ -385,6 +389,35 @@ async function handleProject(
     return await generateMermaid(service, prompt, `Diagram project`, response, token, context, stateManager, outputChannel);
   }
   return await generateDsl(service, prompt, `Diagram project`, response, token, context, stateManager, outputChannel);
+}
+
+async function handleSelection(
+  request: vscode.ChatRequest,
+  response: vscode.ChatResponseStream,
+  token: vscode.CancellationToken,
+  context: vscode.ExtensionContext,
+  outputChannel: vscode.OutputChannel,
+  stateManager: StateManager,
+): Promise<ExcalidrawChatResult> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || editor.selection.isEmpty) {
+    response.markdown('Please select some code in the editor first, then use `@excalidraw /selection`.');
+    return {};
+  }
+
+  const selectedText = editor.document.getText(editor.selection);
+  const relativePath = vscode.workspace.asRelativePath(editor.document.uri, false);
+  const languageId = editor.document.languageId;
+
+  response.progress('✂️ Analyzing selection...');
+  const prompt = buildSelectionAnalysisPrompt(relativePath, languageId, selectedText.slice(0, 6000));
+
+  const service = createService(request, outputChannel);
+  const useMermaid = detectPipelineFromPrompt(request.prompt, service, 'dsl');
+  if (useMermaid) {
+    return await generateMermaid(service, prompt, `Diagram selection from ${relativePath}`, response, token, context, stateManager, outputChannel);
+  }
+  return await generateDsl(service, prompt, `Diagram selection from ${relativePath}`, response, token, context, stateManager, outputChannel);
 }
 
 async function handleRefinement(

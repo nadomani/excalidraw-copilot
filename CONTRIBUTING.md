@@ -29,13 +29,13 @@ Prompt → LLM Think → LLM Generate Mermaid → Native Mermaid Preview → (op
 | File | Purpose |
 |------|---------|
 | `src/extension.ts` | Commands, pipeline routing, feedback loops, project detection |
-| `src/chat/ChatParticipant.ts` | `@excalidraw` Chat Participant — slash commands, refinement, contextual followups |
-| `src/analysis/folderAnalysis.ts` | Folder/file/project analysis, prompt builders, role detection, import graph |
+| `src/chat/ChatParticipant.ts` | `@excalidraw` Chat Participant — slash commands, refinement, selection, contextual followups |
+| `src/analysis/folderAnalysis.ts` | Folder/file/project/selection analysis, prompt builders, role detection, import graph |
 | `src/llm/SemanticDiagramService.ts` | Two-pass LLM generation (think → generate), Mermaid prompts, refinement, pipeline detection |
 | `src/dsl/types.ts` | TypeScript types for the semantic graph DSL |
 | `src/dsl/prompt.ts` | System prompts with schema + examples for the LLM |
-| `src/layout/engine.ts` | Grid layout, snake wrapping, connection routing, fan-out spread |
-| `src/render/shapes.ts` | Converts positioned graph → Excalidraw elements (per-line text rendering) |
+| `src/layout/engine.ts` | Grid layout, snake wrapping, connection routing, decision node sizing |
+| `src/render/shapes.ts` | Converts positioned graph → Excalidraw elements (per-line text rendering, dedicated decision layout) |
 | `src/render/styles.ts` | Semantic color palette (7 colors × 3 shades each) |
 | `src/types/messages.ts` | Extension ↔ WebView message types |
 | `src/webview/WebViewPanel.ts` | VS Code WebView panel management |
@@ -63,10 +63,10 @@ Key message types:
 - **Max files:** 50 (prioritized: entry points > controllers > components > services > models)
 
 ### Smart Project Detection
-`isProjectPrompt()` detects when user prompt refers to "this project/codebase/app" and auto-injects workspace analysis. Skips if the prompt already contains analysis markers (from right-click folder).
+`isProjectPrompt()` detects when user prompt refers to "this project/codebase/app" and auto-injects workspace analysis. Skips if the prompt already contains analysis markers (from right-click folder, file, or selection commands).
 
 ### Node Types
-`service` (blue rect), `database` (green ellipse), `cache` (orange), `queue` (purple), `external` (gray dashed), `user` (info), `process` (yellow rect), `decision` (diamond), `note` (sticky), `group` (container)
+`service` (blue rect), `database` (green ellipse), `cache` (orange), `queue` (purple), `external` (gray dashed), `user` (info), `process` (yellow rect), `decision` (diamond — 1.15× size, centered text in inscribed area, cardinal-point arrow connections), `note` (sticky), `group` (container)
 
 ### Semantic Colors
 `primary` (blue), `secondary` (purple), `success` (green), `warning` (amber), `danger` (red), `info` (cyan), `neutral` (gray)
@@ -100,7 +100,7 @@ cellHeight: 220,       // Grid spacing vertical
 margin: 80,            // Canvas margin
 nodeSizes: {
   high:   { width: 260, height: 160 },
-  medium: { width: 240, height: 140 },  // Dynamic: grows up to 340px for long labels
+  medium: { width: 240, height: 140 },
   low:    { width: 220, height: 120 }
 },
 noteWidth: 340,
@@ -166,4 +166,3 @@ groupPadding: 35
 1. Re-enable visual refinement loop
 2. Undo in feedback loop ("go back to previous version")
 3. Remember model choice across sessions
-4. Diagram from code selection (select → right-click → "Diagram This")

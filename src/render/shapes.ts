@@ -101,6 +101,11 @@ function createNodeElements(node: PositionedNode, zIndex: number): CanvasElement
   const shapeElement = createNodeShape(node, colors, groupId);
   elements.push(shapeElement);
   
+  // Decision (diamond) nodes get a simplified centered layout
+  if (node.type === 'decision') {
+    return createDecisionTextElements(node, colors, groupId, elements);
+  }
+  
   // Calculate vertical positions
   // Database nodes use ellipse with 0.8 height — bottom doesn't extend as far as rectangle
   const isDatabase = node.type === 'database';
@@ -285,6 +290,116 @@ function createNodeElements(node: PositionedNode, zIndex: number): CanvasElement
         baseline: descFontSize - 2
       } as any);
     }
+  }
+  
+  return elements;
+}
+
+// Decision (diamond) nodes: simplified centered layout — label + description, no emoji
+function createDecisionTextElements(
+  node: PositionedNode,
+  colors: { fill: string; stroke: string; text: string },
+  groupId: string,
+  elements: CanvasElement[]
+): CanvasElement[] {
+  const textWidth = node.width * 0.5;
+  const labelFontSize = 18;
+  const descFontSize = 13;
+  
+  // Calculate total content height to center vertically
+  const labelMaxChars = Math.floor((textWidth - 20) / 10);
+  const wrappedLabel = wrapText(node.label, labelMaxChars);
+  const labelLines = wrappedLabel.split('\n').slice(0, 2);
+  const labelLineH = labelFontSize * 1.25;
+  const labelHeight = labelLines.length * labelLineH;
+  
+  let descLines: string[] = [];
+  const descLineH = descFontSize * 1.25;
+  let descHeight = 0;
+  if (node.description) {
+    const descMaxChars = Math.floor((textWidth - 24) / 8);
+    const wrappedDesc = wrapText(node.description, descMaxChars);
+    descLines = wrappedDesc.split('\n').slice(0, 2);
+    descHeight = descLines.length * descLineH;
+  }
+  
+  const gap = descHeight > 0 ? 8 : 0;
+  const totalHeight = labelHeight + gap + descHeight;
+  const startY = node.y - totalHeight / 2;
+  
+  // Label — centered
+  for (let i = 0; i < labelLines.length; i++) {
+    elements.push({
+      id: generateId(),
+      type: 'text',
+      x: node.x - textWidth / 2 + 10,
+      y: startY + i * labelLineH,
+      width: textWidth - 20,
+      height: labelLineH,
+      text: labelLines[i],
+      fontSize: labelFontSize,
+      fontFamily: 1,
+      textAlign: 'center',
+      verticalAlign: 'top',
+      strokeColor: colors.stroke,
+      backgroundColor: 'transparent',
+      fillStyle: 'solid',
+      strokeWidth: 0,
+      roughness: 0,
+      opacity: 100,
+      angle: 0,
+      seed: Math.floor(Math.random() * 100000),
+      version: 1,
+      versionNonce: Math.floor(Math.random() * 100000),
+      isDeleted: false,
+      groupIds: [groupId],
+      boundElements: null,
+      updated: Date.now(),
+      link: null,
+      locked: false,
+      containerId: null,
+      originalText: labelLines[i],
+      lineHeight: 1.25,
+      baseline: 16
+    } as any);
+  }
+  
+  // Description — below label
+  const descStartY = startY + labelHeight + gap;
+  for (let i = 0; i < descLines.length; i++) {
+    elements.push({
+      id: generateId(),
+      type: 'text',
+      x: node.x - textWidth / 2 + 12,
+      y: descStartY + i * descLineH,
+      width: textWidth - 24,
+      height: descLineH,
+      text: descLines[i],
+      fontSize: descFontSize,
+      fontFamily: 1,
+      textAlign: 'center',
+      verticalAlign: 'top',
+      strokeColor: '#333333',
+      backgroundColor: 'transparent',
+      fillStyle: 'solid',
+      strokeWidth: 0,
+      roughness: 0,
+      opacity: 90,
+      angle: 0,
+      seed: Math.floor(Math.random() * 100000),
+      version: 1,
+      versionNonce: Math.floor(Math.random() * 100000),
+      isDeleted: false,
+      groupIds: [groupId],
+      boundElements: null,
+      updated: Date.now(),
+      link: null,
+      locked: false,
+      containerId: null,
+      originalText: descLines[i],
+      lineHeight: 1.25,
+      baseline: descFontSize - 2
+    } as any);
   }
   
   return elements;

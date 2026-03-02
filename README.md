@@ -13,7 +13,7 @@ A VS Code extension that generates beautiful, editable diagrams from natural lan
 
 - 💬 **`@excalidraw` Chat Participant** — type `@excalidraw` in Copilot Chat and just describe what you want
 - 🗣️ **Natural language → Diagram** — describe it, see it
-- 📂 **Code-aware** — right-click any folder or file, or use `/folder`, `/file`, `/project` in chat
+- 📂 **Code-aware** — right-click any folder, file, or code selection, or use `/folder`, `/file`, `/project`, `/selection` in chat
 - 🔄 **Conversational refinement** — follow-up messages refine the diagram in-place
 - 🧜 **Dual pipeline** — Mermaid for architecture, Semantic DSL for processes — auto-detected or use `--mermaid`/`--dsl`
 - 📊 **Sequence diagrams** — ask for one directly or convert any diagram via refinement
@@ -21,6 +21,7 @@ A VS Code extension that generates beautiful, editable diagrams from natural lan
 - 🤖 **Model picker** — choose any Copilot model from the Chat panel or Command Palette
 - 🧠 **Smart project detection** — type "diagram this project" and it auto-analyzes your workspace
 - ✏️ **Fully editable** — every diagram lands on an Excalidraw canvas you can hand-edit
+- ✂️ **Diagram from selection** — select code → right-click → "Diagram This Selection"
 
 > **💡 Model tip:** For architecture/process diagrams, use **Sonnet** or **GPT-4o** — they produce cleaner, more readable layouts. **Opus** shines on detailed process flows and step-by-step tutorials where extra detail is a plus.
 
@@ -92,6 +93,9 @@ A VS Code extension that generates beautiful, editable diagrams from natural lan
 #### 20. Contextual followup suggestions adapt to the diagram topic
 ![Contextual Followups](media/chat-contextual-followups.png)
 
+#### 21. Select code → use `/selection` to diagram the current selection
+![Selection Command](media/chat-selection-command.png)
+
 ### Right-Click & Command Palette (Classic Flow)
 
 ### 1. Open the Command Palette and launch "Generate Diagram"
@@ -129,6 +133,9 @@ A VS Code extension that generates beautiful, editable diagrams from natural lan
 
 ### 12. Sequence diagrams — just ask for one!
 ![Sequence Diagram](media/12-sequence-diagram.png)
+
+### 13. Select code → right-click → "Diagram This Selection"
+![Selection Context Menu](media/selection-context-menu.png)
 
 ---
 
@@ -178,6 +185,7 @@ Type `@excalidraw` in the **Copilot Chat panel** to generate diagrams conversati
 | `/file` | `@excalidraw /file #file:src/server.ts` | Diagram a file's internal structure (classes, functions, imports) |
 | `/folder` | `@excalidraw /folder src/api` | Diagram a folder's architecture (scans code, dependencies, imports) |
 | `/project` | `@excalidraw /project` | Diagram the entire workspace project |
+| `/selection` | `@excalidraw /selection` | Diagram the current code selection (select code first) |
 
 ### Pipeline Override (`--mermaid` / `--dsl`)
 
@@ -187,6 +195,7 @@ By default, `/file` uses DSL and `/folder`/`/project` use Mermaid. Override with
 @excalidraw /folder src/models --dsl         → DSL instead of Mermaid
 @excalidraw /project --dsl                   → DSL instead of Mermaid
 @excalidraw /file --mermaid #file:server.ts  → Mermaid instead of DSL
+@excalidraw /selection --mermaid             → Mermaid for selected code
 @excalidraw draw a coffee process --mermaid  → force Mermaid on free-text
 ```
 
@@ -220,6 +229,7 @@ The classic flow uses the Command Palette and right-click context menus. It incl
 | **Diagram This Folder** | Right-click folder in Explorer | Scans that folder's code, generates architecture |
 | **Diagram This Project** | Right-click folder / `Ctrl+Shift+P` | Scans entire workspace, full project architecture |
 | **Diagram This File** | Right-click file in Explorer / editor | Diagrams a file's internal structure |
+| **Diagram This Selection** | Select code → right-click in editor | Diagrams the selected code snippet |
 | **Open Canvas** | `Ctrl+Shift+P` → "Open Canvas" | Opens a blank Excalidraw canvas |
 
 ## 🎯 Complete Usage Guide
@@ -261,6 +271,13 @@ Type prompts like **"diagram this project"** or **"show the architecture of this
 ### Diagram a Single File
 1. Right-click a **file** → **"Excalidraw Copilot: Diagram This File"**
 2. Shows classes, interfaces, functions, inheritance, method calls, and external dependencies
+
+### Diagram a Code Selection
+1. **Select code** in the editor — a function, class, code block, or any lines
+2. Right-click → **"Excalidraw Copilot: Diagram This Selection"**
+3. Or use `@excalidraw /selection` in the Chat panel
+4. Auto-detects the programming language for better prompts
+5. Great for understanding complex logic, visualizing control flow, or documenting tricky code
 
 ### Sequence Diagrams
 The Mermaid pipeline supports sequence diagrams out of the box. Three ways to get one:
@@ -360,20 +377,20 @@ npm run dev            # Dev mode with hot reload
 ### Project Structure
 ```
 src/
-  extension.ts              # Commands, pipeline routing, feedback loops
+  extension.ts              # Commands, pipeline routing, feedback loops, selection handler
   chat/
-    ChatParticipant.ts      # @excalidraw Chat Participant — slash commands, refinement
+    ChatParticipant.ts      # @excalidraw Chat Participant — slash commands, refinement, selection
   analysis/
-    folderAnalysis.ts       # Folder/file/project analysis, prompt builders, role detection
+    folderAnalysis.ts       # Folder/file/project/selection analysis, prompt builders, role detection
   llm/
     SemanticDiagramService.ts  # Two-pass LLM generation (think → generate), refinement, Mermaid prompts
   dsl/
     types.ts                # Semantic graph types (nodes, connections, groups)
     prompt.ts               # LLM system prompts with schema + examples
   layout/
-    engine.ts               # Grid layout, snake wrapping, arrow routing
+    engine.ts               # Grid layout, snake wrapping, arrow routing, decision sizing
   render/
-    shapes.ts               # Semantic graph → Excalidraw elements
+    shapes.ts               # Semantic graph → Excalidraw elements, decision diamond layout
     styles.ts               # Color palette (7 colors × 3 shades)
   execution/
     StateManager.ts         # Canvas state management

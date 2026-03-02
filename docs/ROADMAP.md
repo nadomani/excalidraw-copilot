@@ -56,19 +56,19 @@ Currently, diagrams are ephemeral — close the tab and they're gone. Nobody bui
 
 ---
 
-## 4. Diagram from Code Selection
+## ✅ 4. Diagram from Code Selection — DONE
 
 **Impact:** 🔥🔥🔥 — Unique differentiator nobody else has  
-**Effort:** Small (0.5 day)
+**Status:** Implemented in v0.4.0
 
-### Why
-Users often stare at a complex function or class and think "I wish I could see this visually." Right now they can diagram a whole file or folder — but not the 30 lines they're confused about. Select → right-click → "Diagram This" is the most natural developer gesture.
-
-### What
-- Add "Diagram This Selection" to the editor context menu
-- Send selected code to the LLM with a structure-analysis prompt
+### What was built
+- "Diagram This Selection" in the editor right-click context menu (only appears when text is selected)
+- `/selection` slash command in `@excalidraw` chat participant
+- `buildSelectionAnalysisPrompt()` — language-aware prompt builder that sends selected code to the LLM
+- Auto-detects language for better prompts (TypeScript, Python, Go, Java, C#, etc.)
 - Works for functions, classes, code blocks, or any selection
-- Auto-detects language for better prompts
+- Pipeline override with `--mermaid` / `--dsl` flags
+- Smart project detection skips selection prompts (won't override with workspace analysis)
 
 ---
 
@@ -94,7 +94,7 @@ After a week of use, users have generated 20 diagrams and can't find any of them
 | Phase | Feature | Why this order |
 |-------|---------|---------------|
 | **Done** | Chat Participant | Biggest reach — puts us in front of every Copilot user |
+| **Done** | Code selection | Unique feature for marketing differentiation |
 | **Now** | Save as `.excalidraw` | Foundation for gallery + retention |
 | **Then** | Streaming rendering | Polish that drives sharing and word-of-mouth |
-| **Then** | Code selection | Unique feature for marketing differentiation |
 | **Later** | Diagram gallery | Builds on saved files, drives daily use |

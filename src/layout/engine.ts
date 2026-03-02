@@ -57,10 +57,15 @@ export function layoutGraph(graph: DiagramGraph): PositionedGraph {
     const row = node.row ?? 0;
     const col = node.column ?? 0;
     
-    // Dynamically widen box if label is long (est. ~10px per char at fontSize 18)
-    const labelWidth = (node.label || '').length * 10 + 30; // +30 for padding
-    const width = Math.max(baseSize.width, Math.min(labelWidth, 340));
-    const height = baseSize.height;
+    // Use base size for all nodes — labels wrap to 2 lines if needed
+    let width = baseSize.width;
+    let height = baseSize.height;
+    
+    // Diamond shapes need slightly more room since usable inscribed area is ~50%
+    if (node.type === 'decision') {
+      width = Math.round(width * 1.15);
+      height = Math.round(height * 1.15);
+    }
     
     // Calculate center position
     const x = CONFIG.margin + (col * CONFIG.cellWidth) + (CONFIG.cellWidth / 2);
@@ -408,9 +413,9 @@ function calculateConnectionPoints(
       fromX = from.x - from.width / 2;
       toX = to.x + to.width / 2;
     }
-    // Spread y along the edge for fan-out/fan-in
-    fromY = from.y + spreadOffset(fanOutIndex, fanOutCount, from.height * 0.5);
-    toY = to.y + spreadOffset(fanInIndex, fanInCount, to.height * 0.5);
+    // Spread y along the edge for fan-out/fan-in (skip for diamond nodes)
+    fromY = from.y + (from.type === 'decision' ? 0 : spreadOffset(fanOutIndex, fanOutCount, from.height * 0.5));
+    toY = to.y + (to.type === 'decision' ? 0 : spreadOffset(fanInIndex, fanInCount, to.height * 0.5));
   } else {
     if (dy > 0) {
       fromY = from.y + from.height / 2;
@@ -434,9 +439,9 @@ function calculateConnectionPoints(
         return { fromX, fromY, toX, toY };
       }
     }
-    // Spread x along the edge for fan-out/fan-in
-    fromX = from.x + spreadOffset(fanOutIndex, fanOutCount, from.width * 0.6);
-    toX = to.x + spreadOffset(fanInIndex, fanInCount, to.width * 0.6);
+    // Spread x along the edge for fan-out/fan-in (skip for diamond nodes)
+    fromX = from.x + (from.type === 'decision' ? 0 : spreadOffset(fanOutIndex, fanOutCount, from.width * 0.6));
+    toX = to.x + (to.type === 'decision' ? 0 : spreadOffset(fanInIndex, fanInCount, to.width * 0.6));
   }
   
   return { fromX, fromY, toX, toY };
