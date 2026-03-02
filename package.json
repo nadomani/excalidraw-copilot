@@ -2,7 +2,7 @@
   "name": "excalidraw-copilot",
   "displayName": "Excalidraw Copilot",
   "description": "Generate beautiful diagrams from natural language using GitHub Copilot — type @excalidraw in chat or right-click any file/folder",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "nadomani",
   "engines": {
     "vscode": "^1.85.0"
@@ -54,6 +54,10 @@
       {
         "command": "excalidraw-copilot.diagramProject",
         "title": "Excalidraw Copilot: Diagram This Project"
+      },
+      {
+        "command": "excalidraw-copilot.diagramSelection",
+        "title": "Excalidraw Copilot: Diagram This Selection"
       }
     ],
     "menus": {
@@ -77,6 +81,11 @@
       "editor/context": [
         {
           "command": "excalidraw-copilot.diagramFile",
+          "group": "navigation"
+        },
+        {
+          "command": "excalidraw-copilot.diagramSelection",
+          "when": "editorHasSelection",
           "group": "navigation"
         }
       ]
@@ -112,6 +121,10 @@
           {
             "name": "project",
             "description": "Diagram the entire workspace project"
+          },
+          {
+            "name": "selection",
+            "description": "Diagram the current code selection"
           }
         ]
       }

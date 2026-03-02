@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] — 2026-03-02
+
+### Added
+- **Diagram from Code Selection** — select code in the editor, right-click → "Diagram This Selection" to generate a diagram of the selected code
+- **`/selection` slash command** — use `@excalidraw /selection` in chat to diagram selected code with `--mermaid`/`--dsl` override support
+- **Language-aware selection prompt** — auto-detects TypeScript, Python, Go, Java, C#, etc. for better prompts
+
+### Fixed
+- **Decision diamond text overflow** — diamond nodes now use a dedicated `createDecisionTextElements()` layout with centered text in the inscribed area
+- **Decision diamond sizing** — diamonds use 1.15× multiplier instead of oversized 1.5×
+- **Decision diamond arrows** — connections use cardinal points (center top/bottom/left/right) instead of fan-spread offsets that placed arrows in empty space
+- **Followup suggestions after `/new`** — clicking a followup after `/new` no longer starts a fresh diagram; suggestions now set explicit `command: 'diagram'` to route through refinement
+- **Uniform rectangle width** — removed dynamic label-based widening; all rectangles use consistent base size per importance tier
+- **Selection prompt project detection** — `isProjectPrompt()` now skips selection prompts (guards against false positives from code containing words like "structure" or "service")
+
 ## [0.3.0] — 2026-03-01
 
 ### Added

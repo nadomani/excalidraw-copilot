@@ -17,6 +17,10 @@ export function isProjectPrompt(prompt: string): boolean {
   if (prompt.includes('## File:') && prompt.includes('```')) {
     return false;
   }
+  // If prompt contains selection content (from diagramSelection command), skip
+  if (prompt.includes('## Selection from:') && prompt.includes('```')) {
+    return false;
+  }
   const lower = prompt.toLowerCase();
   const projectKeywords = [
     'this project', 'this codebase', 'this repo', 'this repository',
@@ -367,6 +371,25 @@ Create a diagram showing:
 6. Group related items (e.g., public API vs internal helpers)
 7. Use appropriate types: "service" for classes, "process" for functions, "database" for data models
 8. Add a note describing what this file/module does`;
+}
+
+/** Build the selection analysis prompt */
+export function buildSelectionAnalysisPrompt(relativePath: string, languageId: string, selection: string): string {
+  return `Analyze this selected code snippet and create a diagram showing its internal logic and structure:
+
+## Selection from: ${relativePath} (${languageId})
+\`\`\`${languageId}
+${selection}
+\`\`\`
+
+Create a diagram showing:
+1. All functions, classes, and key variables as nodes
+2. Control flow (conditions, loops, branches) as connections
+3. Data transformations and method calls as arrows with labels
+4. External calls or dependencies as "external" type nodes
+5. Use direction "TB" (top-to-bottom)
+6. Use appropriate types: "service" for classes, "process" for functions/steps, "decision" for conditionals
+7. Add a note summarizing what this code does`;
 }
 
 /** Build the project analysis prompt (comprehensive) */

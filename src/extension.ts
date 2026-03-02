@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { ExcalidrawPanel } from './webview/WebViewPanel';
 import { SemanticDiagramService } from './llm/SemanticDiagramService';
 import { StateManager } from './execution/StateManager';
-import { analyzeFolder, isProjectPrompt, buildFolderAnalysisPrompt, buildFileAnalysisPrompt, buildProjectAnalysisPrompt } from './analysis/folderAnalysis';
+import { analyzeFolder, isProjectPrompt, buildFolderAnalysisPrompt, buildFileAnalysisPrompt, buildProjectAnalysisPrompt, buildSelectionAnalysisPrompt } from './analysis/folderAnalysis';
 import { registerChatParticipant } from './chat/ChatParticipant';
 
 let outputChannel: vscode.OutputChannel;
@@ -133,10 +133,38 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // Register diagram selection command
+  const diagramSelectionCommand = vscode.commands.registerCommand(
+    'excalidraw-copilot.diagramSelection',
+    async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        vscode.window.showWarningMessage('No active editor. Open a file and select code first.');
+        return;
+      }
+
+      const selection = editor.selection;
+      if (selection.isEmpty) {
+        vscode.window.showWarningMessage('No code selected. Select some code first.');
+        return;
+      }
+
+      const selectedText = editor.document.getText(selection);
+      const relativePath = vscode.workspace.asRelativePath(editor.document.uri, false);
+      const languageId = editor.document.languageId;
+
+      const panel = ExcalidrawPanel.createOrShow(context.extensionUri);
+      setupPanel(panel);
+
+      const prompt = buildSelectionAnalysisPrompt(relativePath, languageId, selectedText.slice(0, 6000));
+      await runGeneration(panel, prompt);
+    }
+  );
+
   // Register @excalidraw chat participant
   const chatParticipant = registerChatParticipant(context, outputChannel, stateManager);
 
-  context.subscriptions.push(openCommand, generateCommand, diagramFolderCommand, diagramFileCommand, diagramProjectCommand, chatParticipant, outputChannel);
+  context.subscriptions.push(openCommand, generateCommand, diagramFolderCommand, diagramFileCommand, diagramProjectCommand, diagramSelectionCommand, chatParticipant, outputChannel);
 }
 
 function setupPanel(panel: ExcalidrawPanel): void {
