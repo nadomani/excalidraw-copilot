@@ -18,6 +18,15 @@ import {
   buildProjectAnalysisPrompt,
   buildSelectionAnalysisPrompt,
 } from '../analysis/folderAnalysis';
+import { DiagramStore, DiagramMetadata } from '../gallery/DiagramStore';
+
+// Module-level reference set during registration
+let _diagramStore: DiagramStore | undefined;
+// Track last saved URI so refinement overwrites instead of creating new files
+let _lastSavedUri: vscode.Uri | undefined;
+
+// Shared refinement context for gallery → chat flow
+let _refinementContext: ExcalidrawChatMetadata | null = null;
 
 // Metadata key for storing diagram state across turns
 interface ExcalidrawChatMetadata {
@@ -27,6 +36,16 @@ interface ExcalidrawChatMetadata {
   originalPrompt: string;
 }
 
+/** Set refinement context from gallery open (consumed once by chat) */
+export function setRefinementContext(ctx: { pipeline: 'dsl' | 'mermaid'; graph?: unknown; mermaid?: string; originalPrompt: string }): void {
+  _refinementContext = ctx;
+}
+
+/** Clear refinement context */
+export function clearRefinementContext(): void {
+  _refinementContext = null;
+}
+
 interface ExcalidrawChatResult extends vscode.ChatResult {
   metadata?: ExcalidrawChatMetadata;
 }
@@ -34,8 +53,10 @@ interface ExcalidrawChatResult extends vscode.ChatResult {
 export function registerChatParticipant(
   context: vscode.ExtensionContext,
   outputChannel: vscode.OutputChannel,
-  stateManager: StateManager
+  stateManager: StateManager,
+  diagramStore?: DiagramStore
 ): vscode.Disposable {
+  _diagramStore = diagramStore;
   const handler: vscode.ChatRequestHandler = async (
     request: vscode.ChatRequest,
     chatContext: vscode.ChatContext,
@@ -143,7 +164,7 @@ function getContextualFollowups(originalPrompt: string, pipeline: 'dsl' | 'merma
 
 // ---- Helpers ----
 
-/** Extract previous diagram state from chat history */
+/** Extract previous diagram state from chat history, falling back to gallery context */
 function getPreviousState(chatContext: vscode.ChatContext): ExcalidrawChatMetadata | null {
   for (let i = chatContext.history.length - 1; i >= 0; i--) {
     const turn = chatContext.history[i];
@@ -154,6 +175,12 @@ function getPreviousState(chatContext: vscode.ChatContext): ExcalidrawChatMetada
         return meta;
       }
     }
+  }
+  // Fall back to gallery-loaded refinement context (consumed once)
+  if (_refinementContext) {
+    const ctx = _refinementContext;
+    _refinementContext = null;
+    return ctx;
   }
   return null;
 }
@@ -225,6 +252,8 @@ async function handleGeneration(
   stateManager: StateManager,
   forcePipeline: 'dsl' | 'mermaid' | 'auto'
 ): Promise<ExcalidrawChatResult> {
+  // New generation — reset tracked URI so we create a fresh file
+  _lastSavedUri = undefined;
   const prompt = stripPipelineKeywords(request.prompt).trim();
   if (!prompt) {
     response.markdown('Please describe the diagram you want to create. For example:\n\n`@excalidraw design a microservices architecture with API gateway`');
@@ -450,6 +479,9 @@ async function handleRefinement(
     await panel.sendMessage({ type: 'showMermaidPreview', payload: { mermaidSyntax: updatedMermaid } } as any);
     await panel.sendMessage({ type: 'zoomToFit', payload: {} });
 
+    // Auto-save refined Mermaid
+    chatAutoSaveMermaid(updatedMermaid, previousState.originalPrompt, outputChannel);
+
     response.markdown(`✅ **Diagram updated!**\n\n💬 *Keep typing changes or use \`/new\` to start fresh.*\n\n`);
     response.button({ command: 'excalidraw-copilot.open', title: '🎨 Open Canvas' });
 
@@ -476,6 +508,9 @@ async function handleRefinement(
     await panel.sendMessage({ type: 'clearCanvas', payload: {} });
     await panel.sendMessage({ type: 'addElements', payload: elements } as any);
     await panel.sendMessage({ type: 'zoomToFit', payload: {} });
+
+    // Auto-save refined DSL diagram
+    chatAutoSave(panel, 'dsl', previousState.originalPrompt, outputChannel, updatedGraph);
 
     response.markdown(`✅ **Diagram updated!** ${updatedGraph.nodes.length} nodes, ${updatedGraph.connections.length} connections\n\n💬 *Keep typing changes or use \`/new\` to start fresh.*\n\n`);
     response.button({ command: 'excalidraw-copilot.open', title: '🎨 Open Canvas' });
@@ -542,6 +577,9 @@ async function generateDsl(
   await panel.sendMessage({ type: 'zoomToFit', payload: {} });
   await new Promise(resolve => setTimeout(resolve, 500));
 
+  // Auto-save
+  chatAutoSave(panel, 'dsl', originalPrompt, outputChannel, result.graph);
+
   const example = getRefinementExample(originalPrompt, 'dsl');
   response.markdown(`✅ **Diagram ready!** ${result.graph.nodes.length} nodes, ${result.graph.connections.length} connections\n\n💬 *Type any changes you want (e.g. "${example}") or use \`/new\` to start a fresh diagram.*\n\n`);
   response.button({ command: 'excalidraw-copilot.open', title: '🎨 Open Canvas' });
@@ -581,6 +619,9 @@ async function generateMermaid(
   await panel.sendMessage({ type: 'showMermaidPreview', payload: { mermaidSyntax: result.mermaidSyntax } } as any);
   await new Promise(resolve => setTimeout(resolve, 500));
 
+  // Auto-save (Mermaid stores syntax directly, not canvas state)
+  chatAutoSaveMermaid(result.mermaidSyntax, originalPrompt, outputChannel);
+
   const example = getRefinementExample(originalPrompt, 'mermaid');
   response.markdown(`✅ **Architecture diagram ready!** (Mermaid pipeline)\n\n💬 *Type any changes you want (e.g. "${example}") or use \`/new\` to start a fresh diagram.*\n\n`);
   response.button({ command: 'excalidraw-copilot.open', title: '🎨 Open Canvas' });
@@ -592,4 +633,78 @@ async function generateMermaid(
       originalPrompt,
     }
   };
+}
+
+/** Fire-and-forget auto-save after chat generation */
+function chatAutoSave(
+  panel: ExcalidrawPanel,
+  pipeline: 'dsl' | 'mermaid',
+  prompt: string,
+  outputChannel: vscode.OutputChannel,
+  graph?: any,
+): void {
+  if (!_diagramStore) { return; }
+  const store = _diagramStore;
+  const targetUri = _lastSavedUri;
+  (async () => {
+    try {
+      const state = await panel.getCanvasState();
+      if (!state.elements || state.elements.length === 0) { return; }
+      const metadata: DiagramMetadata = {
+        prompt: prompt.slice(0, 200),
+        pipeline,
+        timestamp: Date.now(),
+        nodeCount: state.elements.filter((e: any) => e.type !== 'arrow' && e.type !== 'line' && !e.isDeleted).length,
+        connectionCount: state.elements.filter((e: any) => (e.type === 'arrow' || e.type === 'line') && !e.isDeleted).length,
+      };
+      let uri: vscode.Uri | undefined;
+      if (targetUri) {
+        uri = await store.saveDiagram(state.elements, state.appState, metadata, targetUri, graph);
+      } else {
+        uri = await store.autoSave(state.elements, state.appState, metadata, graph);
+      }
+      if (uri) {
+        _lastSavedUri = uri;
+        outputChannel.appendLine(`Chat auto-saved: ${vscode.workspace.asRelativePath(uri)}`);
+        vscode.commands.executeCommand('excalidrawGallery.focus');
+      }
+    } catch (e) {
+      outputChannel.appendLine(`Chat auto-save failed: ${(e as Error).message}`);
+    }
+  })();
+}
+
+/** Fire-and-forget auto-save for Mermaid diagrams (stores syntax directly) */
+function chatAutoSaveMermaid(
+  mermaidSyntax: string,
+  prompt: string,
+  outputChannel: vscode.OutputChannel,
+): void {
+  if (!_diagramStore) { return; }
+  const store = _diagramStore;
+  const targetUri = _lastSavedUri;
+  (async () => {
+    try {
+      const metadata: DiagramMetadata = {
+        prompt: prompt.slice(0, 200),
+        pipeline: 'mermaid',
+        timestamp: Date.now(),
+        nodeCount: 0,
+        connectionCount: 0,
+      };
+      let uri: vscode.Uri | undefined;
+      if (targetUri) {
+        uri = await store.saveMermaid(mermaidSyntax, metadata, targetUri);
+      } else {
+        uri = await store.autoSaveMermaid(mermaidSyntax, metadata);
+      }
+      if (uri) {
+        _lastSavedUri = uri;
+        outputChannel.appendLine(`Chat Mermaid auto-saved: ${vscode.workspace.asRelativePath(uri)}`);
+        vscode.commands.executeCommand('excalidrawGallery.focus');
+      }
+    } catch (e) {
+      outputChannel.appendLine(`Chat Mermaid auto-save failed: ${(e as Error).message}`);
+    }
+  })();
 }

@@ -2,7 +2,7 @@
   "name": "excalidraw-copilot",
   "displayName": "Excalidraw Copilot",
   "description": "Generate beautiful diagrams from natural language using GitHub Copilot — type @excalidraw in chat or right-click any file/folder",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "nadomani",
   "engines": {
     "vscode": "^1.85.0"
@@ -58,6 +58,45 @@
       {
         "command": "excalidraw-copilot.diagramSelection",
         "title": "Excalidraw Copilot: Diagram This Selection"
+      },
+      {
+        "command": "excalidraw-copilot.saveDiagram",
+        "title": "Excalidraw Copilot: Save Diagram",
+        "icon": "$(save)"
+      },
+      {
+        "command": "excalidraw-copilot.openDiagram",
+        "title": "Excalidraw Copilot: Open Diagram"
+      },
+      {
+        "command": "excalidraw-copilot.galleryOpen",
+        "title": "Open Diagram",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "excalidraw-copilot.galleryDelete",
+        "title": "Delete Diagram",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "excalidraw-copilot.galleryRename",
+        "title": "Rename Diagram",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "excalidraw-copilot.galleryReveal",
+        "title": "Reveal in Explorer",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "excalidraw-copilot.galleryRefine",
+        "title": "Refine Diagram",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "excalidraw-copilot.galleryRefresh",
+        "title": "Refresh Gallery",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -87,6 +126,40 @@
           "command": "excalidraw-copilot.diagramSelection",
           "when": "editorHasSelection",
           "group": "navigation"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "excalidraw-copilot.galleryRefresh",
+          "when": "view == excalidrawGallery",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "excalidraw-copilot.galleryOpen",
+          "when": "view == excalidrawGallery",
+          "group": "inline"
+        },
+        {
+          "command": "excalidraw-copilot.galleryDelete",
+          "when": "view == excalidrawGallery",
+          "group": "context@1"
+        },
+        {
+          "command": "excalidraw-copilot.galleryRename",
+          "when": "view == excalidrawGallery",
+          "group": "context@2"
+        },
+        {
+          "command": "excalidraw-copilot.galleryReveal",
+          "when": "view == excalidrawGallery",
+          "group": "context@3"
+        },
+        {
+          "command": "excalidraw-copilot.galleryRefine",
+          "when": "view == excalidrawGallery",
+          "group": "context@4"
         }
       ]
     },
@@ -131,8 +204,50 @@
     ],
     "configuration": {
       "title": "Excalidraw Copilot",
-      "properties": {}
-    }
+      "properties": {
+        "excalidraw-copilot.autoSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically save diagrams to .excalidraw-copilot/ folder after generation"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "excalidraw-copilot",
+          "title": "Excalidraw Diagrams",
+          "icon": "$(preview)"
+        }
+      ]
+    },
+    "views": {
+      "excalidraw-copilot": [
+        {
+          "id": "excalidrawGallery",
+          "name": "Diagrams",
+          "when": "workbenchState != empty"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "excalidrawGallery",
+        "contents": "No saved diagrams yet.\nGenerate a diagram with @excalidraw in chat or the Command Palette — it'll appear here automatically.\n[Generate Diagram](command:excalidraw-copilot.generate)"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "excalidraw-copilot.excalidrawEditor",
+        "displayName": "Excalidraw Copilot",
+        "selector": [
+          {
+            "filenamePattern": "*.excalidraw"
+          }
+        ],
+        "priority": "default"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

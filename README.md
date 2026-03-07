@@ -15,6 +15,9 @@ A VS Code extension that generates beautiful, editable diagrams from natural lan
 - 🗣️ **Natural language → Diagram** — describe it, see it
 - 📂 **Code-aware** — right-click any folder, file, or code selection, or use `/folder`, `/file`, `/project`, `/selection` in chat
 - 🔄 **Conversational refinement** — follow-up messages refine the diagram in-place
+- 💾 **Auto-save & Gallery** — diagrams auto-save to `.excalidraw-copilot/` and appear in the sidebar gallery
+- 📋 **Diagram Gallery** — browse, open, rename, delete, and refine saved diagrams from the Activity Bar
+- 🔁 **Refine saved diagrams** — reopen any saved diagram and iterate on it (preserves the original as a copy)
 - 🧜 **Dual pipeline** — Mermaid for architecture, Semantic DSL for processes — auto-detected or use `--mermaid`/`--dsl`
 - 📊 **Sequence diagrams** — ask for one directly or convert any diagram via refinement
 - 🔍 **Mermaid zoom, pan & export** — Ctrl+Scroll to zoom, export as SVG or PNG
@@ -95,6 +98,22 @@ A VS Code extension that generates beautiful, editable diagrams from natural lan
 
 #### 21. Select code → use `/selection` to diagram the current selection
 ![Selection Command](media/chat-selection-command.png)
+
+### Diagram Gallery — Auto-Save & Reopen
+
+> Every diagram you generate is **automatically saved** to `.excalidraw-copilot/` in your workspace. Browse, reopen, and refine them from the gallery.
+
+#### 22. The Excalidraw Diagrams icon appears in the Activity Bar
+![Gallery Icon](media/gallery-activity-bar-icon.png)
+
+#### 23. Click the icon to see all saved diagrams in the gallery panel
+![Gallery Panel](media/gallery-panel-sidebar.png)
+
+#### 24. Right-click any diagram for actions: Delete, Rename, Reveal in Explorer, Refine
+![Gallery Context Menu](media/gallery-context-menu.png)
+
+#### 25. Open a saved diagram → refinement popup appears automatically
+![Refinement Popup](media/gallery-refinement-popup.png)
 
 ### Right-Click & Command Palette (Classic Flow)
 
@@ -231,6 +250,44 @@ The classic flow uses the Command Palette and right-click context menus. It incl
 | **Diagram This File** | Right-click file in Explorer / editor | Diagrams a file's internal structure |
 | **Diagram This Selection** | Select code → right-click in editor | Diagrams the selected code snippet |
 | **Open Canvas** | `Ctrl+Shift+P` → "Open Canvas" | Opens a blank Excalidraw canvas |
+
+## 💾 Diagram Gallery
+
+Every diagram you generate is **automatically saved** as an `.excalidraw` file in the `.excalidraw-copilot/` folder of your workspace. A dedicated **Excalidraw Diagrams** panel appears in the Activity Bar (sidebar).
+
+### Auto-Save
+- **Enabled by default** — disable in settings: `excalidraw-copilot.autoSave`
+- Saves after initial generation **and** after refinement
+- Fresh generation refinement **overwrites** the same file (same session)
+- Gallery refinement **saves as a copy** with `-refined` suffix (original preserved)
+- Filenames: `{prompt-slug}_{timestamp}.excalidraw`
+
+### Gallery Actions
+| Action | How | What it does |
+|--------|-----|-------------|
+| **Open** | Click diagram in gallery | Loads the diagram + offers refinement popup |
+| **Refine** | Right-click → "Refine Diagram" | Opens diagram + focuses chat for natural refinement |
+| **Rename** | Right-click → "Rename Diagram" | Rename the file |
+| **Delete** | Right-click → "Delete Diagram" | Delete with confirmation |
+| **Reveal** | Right-click → "Reveal in Explorer" | Opens the file location |
+
+### Refinement from Gallery
+When you open a saved diagram, a **"Any changes?"** popup appears — same as after generation. You can describe changes and the LLM refines the diagram. The original file is preserved; the refined version saves as `{name}-refined.excalidraw`.
+
+You can also refine through **@excalidraw chat** — the gallery sets refinement context automatically.
+
+### `.excalidraw` File Format
+Files use standard Excalidraw JSON with additional metadata:
+- `elements` — Excalidraw shapes (empty for Mermaid diagrams)
+- `graph` — Semantic DSL graph JSON (for DSL refinement)
+- `mermaidSyntax` — Mermaid source code (for Mermaid refinement)
+- `metadata` — prompt, pipeline, model, timestamp, node/connection counts
+
+### Custom Editor
+Double-clicking any `.excalidraw` file in the Explorer opens it in the Excalidraw Copilot editor.
+
+### Git Integration
+On first save, the extension asks whether to add `.excalidraw-copilot/` to `.gitignore` (remembers your choice).
 
 ## 🎯 Complete Usage Guide
 
@@ -377,9 +434,14 @@ npm run dev            # Dev mode with hot reload
 ### Project Structure
 ```
 src/
-  extension.ts              # Commands, pipeline routing, feedback loops, selection handler
+  extension.ts              # Commands, pipeline routing, feedback loops, auto-save, gallery
   chat/
     ChatParticipant.ts      # @excalidraw Chat Participant — slash commands, refinement, selection
+  gallery/
+    DiagramStore.ts         # Save/load/list/delete .excalidraw files, auto-save, gitignore prompt
+    GalleryProvider.ts      # TreeView data provider for sidebar gallery, file watcher
+  editor/
+    ExcalidrawEditorProvider.ts  # Custom editor for .excalidraw files
   analysis/
     folderAnalysis.ts       # Folder/file/project/selection analysis, prompt builders, role detection
   llm/

@@ -26,6 +26,8 @@ export class ExcalidrawPanel {
 
   private onCanvasStateChange: ((state: CanvasState) => void) | null = null;
   private onUserPrompt: ((prompt: string) => void) | null = null;
+  private onSaveDiagram: ((payload: any) => void) | null = null;
+  private canvasStateQueue: ((state: CanvasState) => void)[] = [];
 
   public static createOrShow(extensionUri: vscode.Uri): ExcalidrawPanel {
     const column = vscode.window.activeTextEditor
@@ -82,7 +84,14 @@ export class ExcalidrawPanel {
         break;
 
       case 'canvasState':
-        if (this.onCanvasStateChange) {
+        // Resolve all queued getCanvasState requests
+        if (this.canvasStateQueue.length > 0) {
+          const queued = [...this.canvasStateQueue];
+          this.canvasStateQueue = [];
+          for (const resolve of queued) {
+            resolve(message.payload);
+          }
+        } else if (this.onCanvasStateChange) {
           this.onCanvasStateChange(message.payload);
         }
         break;
@@ -133,6 +142,12 @@ export class ExcalidrawPanel {
       case 'saveToFile':
         this.handleSaveToFile(message.payload);
         break;
+
+      case 'saveDiagram':
+        if (this.onSaveDiagram) {
+          this.onSaveDiagram(message.payload);
+        }
+        break;
     }
   }
 
@@ -171,12 +186,11 @@ export class ExcalidrawPanel {
 
   public async getCanvasState(): Promise<CanvasState> {
     return new Promise((resolve) => {
-      const originalHandler = this.onCanvasStateChange;
-      this.onCanvasStateChange = (state) => {
-        this.onCanvasStateChange = originalHandler;
-        resolve(state);
-      };
-      this.sendMessage({ type: 'getCanvasState', payload: {} });
+      this.canvasStateQueue.push(resolve);
+      // Only send message if this is the first queued request
+      if (this.canvasStateQueue.length === 1) {
+        this.sendMessage({ type: 'getCanvasState', payload: {} });
+      }
     });
   }
 
@@ -186,6 +200,10 @@ export class ExcalidrawPanel {
 
   public setOnUserPrompt(handler: (prompt: string) => void): void {
     this.onUserPrompt = handler;
+  }
+
+  public setOnSaveDiagram(handler: (payload: any) => void): void {
+    this.onSaveDiagram = handler;
   }
 
   private async handleSaveToFile(payload: { data: string; filename: string; mimeType: string; encoding?: 'utf8' | 'base64' }): Promise<void> {

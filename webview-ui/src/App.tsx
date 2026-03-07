@@ -892,6 +892,24 @@ function App() {
     }
   }, [prompt, postMessage]);
 
+  // Handle save diagram
+  const handleSaveDiagram = useCallback(() => {
+    const api = excalidrawRef.current;
+    if (api) {
+      const elements = api.getSceneElements();
+      const appState = api.getAppState();
+      postMessage('saveDiagram', {
+        elements: [...elements],
+        appState: {
+          viewBackgroundColor: appState.viewBackgroundColor,
+          gridSize: appState.gridSize,
+        },
+      });
+    } else {
+      postMessage('saveDiagram', { elements: [], appState: {} });
+    }
+  }, [postMessage]);
+
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

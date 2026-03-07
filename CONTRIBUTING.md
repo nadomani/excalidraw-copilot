@@ -28,8 +28,11 @@ Prompt → LLM Think → LLM Generate Mermaid → Native Mermaid Preview → (op
 
 | File | Purpose |
 |------|---------|
-| `src/extension.ts` | Commands, pipeline routing, feedback loops, project detection |
+| `src/extension.ts` | Commands, pipeline routing, feedback loops, auto-save, gallery commands |
 | `src/chat/ChatParticipant.ts` | `@excalidraw` Chat Participant — slash commands, refinement, selection, contextual followups |
+| `src/gallery/DiagramStore.ts` | Save/load/list/delete/rename `.excalidraw` files, auto-save with settings, gitignore prompt |
+| `src/gallery/GalleryProvider.ts` | TreeView data provider for Activity Bar gallery, file watcher for auto-refresh |
+| `src/editor/ExcalidrawEditorProvider.ts` | Custom readonly editor for `.excalidraw` files (opens in Excalidraw panel) |
 | `src/analysis/folderAnalysis.ts` | Folder/file/project/selection analysis, prompt builders, role detection, import graph |
 | `src/llm/SemanticDiagramService.ts` | Two-pass LLM generation (think → generate), Mermaid prompts, refinement, pipeline detection |
 | `src/dsl/types.ts` | TypeScript types for the semantic graph DSL |
@@ -52,6 +55,8 @@ Key message types:
 - `renderMermaid` — convert Mermaid syntax directly to Excalidraw elements (legacy)
 - `clearCanvas` — reset canvas + switch back to Excalidraw view mode
 - `zoomToFit` — auto-zoom after rendering
+- `saveDiagram` — WebView → Extension: triggers save dialog
+- `canvasState` — WebView → Extension: returns current canvas elements and appState
 
 ### Code Analysis (Folder Scanner)
 `analyzeFolder()` in `src/analysis/folderAnalysis.ts` scans:
@@ -140,11 +145,8 @@ groupPadding: 35
 
 ## Future Enhancements
 
-### Priority 1: Save & Reopen as `.excalidraw` Files
-1. Auto-save generated diagrams as `.excalidraw` files in the workspace
-2. Add "Save Diagram" and "Open Diagram" commands
-3. Support the standard Excalidraw JSON format
-4. Register as file editor for `.excalidraw` files
+### ~~Priority 1: Save & Reopen as `.excalidraw` Files~~ ✅ Done (v0.5.0)
+Auto-save, gallery, custom editor, refinement from saved diagrams — all implemented.
 
 ### Priority 2: Streaming Diagram Rendering
 1. Parse partial JSON/Mermaid as the LLM streams chunks

@@ -39,7 +39,8 @@ export type WebViewToExtensionMessage =
   | { type: 'userPrompt'; payload: { prompt: string } }
   | { type: 'convertMermaidToExcalidraw'; payload: Record<string, never> }
   | { type: 'screenshot'; payload: { base64: string; mimeType: string; width: number; height: number } }
-  | { type: 'saveToFile'; payload: { data: string; filename: string; mimeType: string; encoding?: 'utf8' | 'base64' } };
+  | { type: 'saveToFile'; payload: { data: string; filename: string; mimeType: string; encoding?: 'utf8' | 'base64' } }
+  | { type: 'saveDiagram'; payload: { elements: any[]; appState: any } };
 
 // Payload types for tool operations
 export interface CreateRectanglePayload {
