@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] — 2026-03-07
+
+### Added
+- **Auto-Save Diagrams** — every generated diagram automatically saves as an `.excalidraw` file in `.excalidraw-copilot/` (configurable via `excalidraw-copilot.autoSave` setting)
+- **Diagram Gallery** — dedicated Activity Bar panel showing all saved diagrams with prompt, pipeline, and relative timestamp
+- **Gallery Actions** — right-click context menu: Open, Delete, Rename, Reveal in Explorer, Refine Diagram
+- **Refine Saved Diagrams** — reopen any saved diagram and iterate on it; DSL refinement uses stored graph, Mermaid refinement uses stored syntax
+- **Gallery auto-reveal** — gallery panel auto-focuses after first save with a one-time notification
+- **Custom Editor** — double-click `.excalidraw` files to open them in Excalidraw Copilot
+- **Refinement auto-save** — popup loop and chat refinement both auto-save results
+- **"Refine Diagram" command** — gallery context menu option that opens diagram + focuses chat
+- **Git integration** — asks once whether to add `.excalidraw-copilot/` to `.gitignore`
+- **`.excalidraw` file format** — stores elements, graph (DSL), mermaidSyntax, and metadata for full round-trip refinement
+
+### Changed
+- Gallery refinement saves as a `-refined` copy (original preserved); fresh generation refinement overwrites the same file
+- Filenames now use name-first format: `{prompt-slug}_{timestamp}.excalidraw` (previously timestamp-first)
+- Gallery label shows filename (not prompt) so renamed files display correctly
+- Mermaid auto-save stores syntax directly instead of empty Excalidraw canvas
+- Chat DSL auto-save now passes graph JSON for future refinement support
+
+### Fixed
+- **Mermaid auto-save empty canvas** — Mermaid renders as SVG overlay, not Excalidraw elements; auto-save now stores Mermaid syntax directly
+- **getCanvasState() race condition** — concurrent calls overwrote handler; fixed with queue pattern
+- **Filename collision** — minute-precision timestamps caused collisions; fixed with second-precision
+- **galleryProvider disposal leak** — wasn't in context.subscriptions; now properly disposed
+- **Duplicate files on refinement** — tracked saved URI so refinement overwrites instead of creating new files each time
+
 ## [0.4.0] — 2026-03-02
 
 ### Added

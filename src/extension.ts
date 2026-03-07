@@ -9,16 +9,53 @@ import { ExcalidrawPanel } from './webview/WebViewPanel';
 import { SemanticDiagramService } from './llm/SemanticDiagramService';
 import { StateManager } from './execution/StateManager';
 import { analyzeFolder, isProjectPrompt, buildFolderAnalysisPrompt, buildFileAnalysisPrompt, buildProjectAnalysisPrompt, buildSelectionAnalysisPrompt } from './analysis/folderAnalysis';
-import { registerChatParticipant } from './chat/ChatParticipant';
+import { registerChatParticipant, setRefinementContext } from './chat/ChatParticipant';
+import { DiagramStore, DiagramMetadata } from './gallery/DiagramStore';
+import { GalleryProvider, GalleryItem } from './gallery/GalleryProvider';
+import { ExcalidrawEditorProvider } from './editor/ExcalidrawEditorProvider';
 
 let outputChannel: vscode.OutputChannel;
 let stateManager: StateManager;
+let diagramStore: DiagramStore;
+let galleryProvider: GalleryProvider;
+let _extensionContext: vscode.ExtensionContext | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
+  _extensionContext = context;
   outputChannel = vscode.window.createOutputChannel('Excalidraw Copilot');
   stateManager = new StateManager();
+  diagramStore = new DiagramStore();
+  DiagramStore.setWorkspaceState(context.workspaceState);
 
   outputChannel.appendLine('Excalidraw Copilot extension activated');
+
+  // --- Gallery TreeView ---
+  galleryProvider = new GalleryProvider(diagramStore);
+  const galleryView = vscode.window.createTreeView('excalidrawGallery', {
+    treeDataProvider: galleryProvider,
+    showCollapseAll: false,
+  });
+
+  // --- Custom Editor for .excalidraw files ---
+  const editorProvider = new ExcalidrawEditorProvider(diagramStore);
+  editorProvider.setOpenHandler(async (file) => {
+    const panel = ExcalidrawPanel.createOrShow(context.extensionUri);
+    setupPanel(panel);
+    await panel.waitUntilReady();
+    await panel.sendMessage({ type: 'clearCanvas', payload: {} });
+
+    if (file.mermaidSyntax) {
+      await panel.sendMessage({ type: 'showMermaidPreview', payload: { mermaidSyntax: file.mermaidSyntax } } as any);
+    } else {
+      await panel.sendMessage({ type: 'addElements', payload: file.elements } as any);
+      await panel.sendMessage({ type: 'zoomToFit', payload: {} });
+    }
+  });
+  const customEditorRegistration = vscode.window.registerCustomEditorProvider(
+    ExcalidrawEditorProvider.viewType,
+    editorProvider,
+    { webviewOptions: { retainContextWhenHidden: true } }
+  );
 
   // Register open command
   const openCommand = vscode.commands.registerCommand(
@@ -162,9 +199,212 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   // Register @excalidraw chat participant
-  const chatParticipant = registerChatParticipant(context, outputChannel, stateManager);
+  const chatParticipant = registerChatParticipant(context, outputChannel, stateManager, diagramStore);
 
-  context.subscriptions.push(openCommand, generateCommand, diagramFolderCommand, diagramFileCommand, diagramProjectCommand, diagramSelectionCommand, chatParticipant, outputChannel);
+  // --- Save Diagram command ---
+  const saveDiagramCommand = vscode.commands.registerCommand(
+    'excalidraw-copilot.saveDiagram',
+    async () => {
+      const panel = ExcalidrawPanel.currentPanel;
+      if (!panel) {
+        vscode.window.showWarningMessage('No Excalidraw canvas open. Generate a diagram first.');
+        return;
+      }
+      try {
+        const state = await panel.getCanvasState();
+        if (!state.elements || state.elements.length === 0) {
+          vscode.window.showWarningMessage('Canvas is empty. Generate a diagram first.');
+          return;
+        }
+        const saveUri = await vscode.window.showSaveDialog({
+          defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri,
+          filters: { 'Excalidraw': ['excalidraw'] },
+          saveLabel: 'Save Diagram',
+        });
+        if (!saveUri) { return; }
+        const metadata: DiagramMetadata = {
+          prompt: 'Manual save',
+          pipeline: 'dsl',
+          timestamp: Date.now(),
+          nodeCount: state.elements.filter((e: any) => e.type !== 'arrow' && e.type !== 'line' && !e.isDeleted).length,
+          connectionCount: state.elements.filter((e: any) => (e.type === 'arrow' || e.type === 'line') && !e.isDeleted).length,
+        };
+        await diagramStore.saveDiagram(state.elements, state.appState, metadata, saveUri);
+        vscode.window.showInformationMessage(`💾 Diagram saved to ${vscode.workspace.asRelativePath(saveUri)}`);
+      } catch (e) {
+        vscode.window.showErrorMessage(`Failed to save: ${(e as Error).message}`);
+      }
+    }
+  );
+
+  // --- Open Diagram command ---
+  const openDiagramCommand = vscode.commands.registerCommand(
+    'excalidraw-copilot.openDiagram',
+    async () => {
+      const files = await vscode.window.showOpenDialog({
+        canSelectFiles: true,
+        canSelectFolders: false,
+        canSelectMany: false,
+        filters: { 'Excalidraw': ['excalidraw'] },
+        openLabel: 'Open Diagram',
+      });
+      if (!files || files.length === 0) { return; }
+      try {
+        const file = await diagramStore.loadDiagram(files[0]);
+        const panel = ExcalidrawPanel.createOrShow(context.extensionUri);
+        setupPanel(panel);
+        await panel.waitUntilReady();
+        await panel.sendMessage({ type: 'clearCanvas', payload: {} });
+
+        if (file.mermaidSyntax) {
+          await panel.sendMessage({ type: 'showMermaidPreview', payload: { mermaidSyntax: file.mermaidSyntax } } as any);
+        } else {
+          await panel.sendMessage({ type: 'addElements', payload: file.elements } as any);
+          await panel.sendMessage({ type: 'zoomToFit', payload: {} });
+        }
+        outputChannel.appendLine(`Opened diagram: ${vscode.workspace.asRelativePath(files[0])}`);
+      } catch (e) {
+        vscode.window.showErrorMessage(`Failed to open: ${(e as Error).message}`);
+      }
+    }
+  );
+
+  // --- Gallery commands ---
+  const galleryOpenCommand = vscode.commands.registerCommand(
+    'excalidraw-copilot.galleryOpen',
+    async (item?: GalleryItem) => {
+      if (!item) { return; }
+      try {
+        const fileUri = item.diagramItem.uri;
+        const file = await diagramStore.loadDiagram(fileUri);
+        const panel = ExcalidrawPanel.createOrShow(context.extensionUri);
+        setupPanel(panel);
+        await panel.waitUntilReady();
+        await panel.sendMessage({ type: 'clearCanvas', payload: {} });
+
+        const prompt = file.metadata?.prompt || '';
+
+        if (file.mermaidSyntax) {
+          await panel.sendMessage({ type: 'showMermaidPreview', payload: { mermaidSyntax: file.mermaidSyntax } } as any);
+          setRefinementContext({ pipeline: 'mermaid', mermaid: file.mermaidSyntax, originalPrompt: prompt });
+          const diagramService = new SemanticDiagramService(outputChannel);
+          // Save as "-refined" copy to preserve original
+          const refinedUri = diagramStore.generateRefinedUri(fileUri);
+          await runMermaidFeedbackLoop(panel, diagramService, prompt, file.mermaidSyntax, refinedUri);
+        } else {
+          await panel.sendMessage({ type: 'addElements', payload: file.elements } as any);
+          await panel.sendMessage({ type: 'zoomToFit', payload: {} });
+          if (file.graph) {
+            setRefinementContext({ pipeline: 'dsl', graph: file.graph, originalPrompt: prompt });
+            const { layoutGraph } = await import('./layout/engine');
+            const { renderToExcalidraw } = await import('./render/shapes');
+            const renderGraph = async (graph: any) => {
+              if (!graph || !graph.nodes) { throw new Error('Invalid graph'); }
+              const positionedGraph = layoutGraph(graph);
+              const elements = renderToExcalidraw(positionedGraph);
+              await panel.sendMessage({ type: 'clearCanvas', payload: {} });
+              await panel.sendMessage({ type: 'addElements', payload: elements } as any);
+              await panel.sendMessage({ type: 'zoomToFit', payload: {} });
+              await new Promise(resolve => setTimeout(resolve, 500));
+              return elements;
+            };
+            const diagramService = new SemanticDiagramService(outputChannel);
+            // Save as "-refined" copy to preserve original
+            const refinedUri = diagramStore.generateRefinedUri(fileUri);
+            await runFeedbackLoop(panel, diagramService, prompt, file.graph, renderGraph, refinedUri);
+          }
+        }
+        outputChannel.appendLine(`Opened from gallery: ${item.diagramItem.name}`);
+      } catch (e) {
+        vscode.window.showErrorMessage(`Failed to open: ${(e as Error).message}`);
+      }
+    }
+  );
+
+  const galleryDeleteCommand = vscode.commands.registerCommand(
+    'excalidraw-copilot.galleryDelete',
+    async (item?: GalleryItem) => {
+      if (!item) { return; }
+      const confirm = await vscode.window.showWarningMessage(
+        `Delete "${item.diagramItem.name}"?`,
+        { modal: true },
+        'Delete'
+      );
+      if (confirm === 'Delete') {
+        await diagramStore.deleteDiagram(item.diagramItem.uri);
+        galleryProvider.refresh();
+      }
+    }
+  );
+
+  const galleryRenameCommand = vscode.commands.registerCommand(
+    'excalidraw-copilot.galleryRename',
+    async (item?: GalleryItem) => {
+      if (!item) { return; }
+      const newName = await vscode.window.showInputBox({
+        prompt: 'New name for this diagram',
+        value: item.diagramItem.name,
+      });
+      if (newName && newName !== item.diagramItem.name) {
+        await diagramStore.renameDiagram(item.diagramItem.uri, newName);
+        galleryProvider.refresh();
+      }
+    }
+  );
+
+  const galleryRevealCommand = vscode.commands.registerCommand(
+    'excalidraw-copilot.galleryReveal',
+    async (item?: GalleryItem) => {
+      if (!item) { return; }
+      await vscode.commands.executeCommand('revealFileInOS', item.diagramItem.uri);
+    }
+  );
+
+  const galleryRefineCommand = vscode.commands.registerCommand(
+    'excalidraw-copilot.galleryRefine',
+    async (item?: GalleryItem) => {
+      if (!item) { return; }
+      try {
+        // Load and display diagram WITHOUT starting popup loop
+        const file = await diagramStore.loadDiagram(item.diagramItem.uri);
+        const panel = ExcalidrawPanel.createOrShow(context.extensionUri);
+        setupPanel(panel);
+        await panel.waitUntilReady();
+        await panel.sendMessage({ type: 'clearCanvas', payload: {} });
+        const prompt = file.metadata?.prompt || '';
+
+        if (file.mermaidSyntax) {
+          await panel.sendMessage({ type: 'showMermaidPreview', payload: { mermaidSyntax: file.mermaidSyntax } } as any);
+          setRefinementContext({ pipeline: 'mermaid', mermaid: file.mermaidSyntax, originalPrompt: prompt });
+        } else {
+          await panel.sendMessage({ type: 'addElements', payload: file.elements } as any);
+          await panel.sendMessage({ type: 'zoomToFit', payload: {} });
+          if (file.graph) {
+            setRefinementContext({ pipeline: 'dsl', graph: file.graph, originalPrompt: prompt });
+          }
+        }
+        // Focus chat — user types refinement there
+        await vscode.commands.executeCommand('workbench.action.chat.open', { query: '@excalidraw ' });
+      } catch (e) {
+        vscode.window.showErrorMessage(`Failed to open: ${(e as Error).message}`);
+      }
+    }
+  );
+
+  const galleryRefreshCommand = vscode.commands.registerCommand(
+    'excalidraw-copilot.galleryRefresh',
+    () => galleryProvider.refresh()
+  );
+
+  context.subscriptions.push(
+    openCommand, generateCommand, diagramFolderCommand, diagramFileCommand,
+    diagramProjectCommand, diagramSelectionCommand, chatParticipant,
+    saveDiagramCommand, openDiagramCommand,
+    galleryOpenCommand, galleryDeleteCommand, galleryRenameCommand,
+    galleryRevealCommand, galleryRefineCommand, galleryRefreshCommand,
+    galleryView, galleryProvider, customEditorRegistration,
+    outputChannel
+  );
 }
 
 function setupPanel(panel: ExcalidrawPanel): void {
@@ -176,6 +416,33 @@ function setupPanel(panel: ExcalidrawPanel): void {
   // Set up canvas state sync
   panel.setOnCanvasStateChange((state) => {
     stateManager.updateState(state);
+  });
+
+  // Set up save diagram handler (from webview save button)
+  panel.setOnSaveDiagram(async (payload) => {
+    try {
+      if (!payload.elements || payload.elements.length === 0) {
+        vscode.window.showWarningMessage('Canvas is empty. Generate a diagram first.');
+        return;
+      }
+      const saveUri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.workspace.workspaceFolders?.[0]?.uri,
+        filters: { 'Excalidraw': ['excalidraw'] },
+        saveLabel: 'Save Diagram',
+      });
+      if (!saveUri) { return; }
+      const metadata: DiagramMetadata = {
+        prompt: 'Manual save',
+        pipeline: 'dsl',
+        timestamp: Date.now(),
+        nodeCount: payload.elements.filter((e: any) => e.type !== 'arrow' && e.type !== 'line' && !e.isDeleted).length,
+        connectionCount: payload.elements.filter((e: any) => (e.type === 'arrow' || e.type === 'line') && !e.isDeleted).length,
+      };
+      await diagramStore.saveDiagram(payload.elements, payload.appState, metadata, saveUri);
+      vscode.window.showInformationMessage(`💾 Diagram saved to ${vscode.workspace.asRelativePath(saveUri)}`);
+    } catch (e) {
+      vscode.window.showErrorMessage(`Failed to save: ${(e as Error).message}`);
+    }
   });
 }
 
@@ -277,14 +544,87 @@ Show ONLY what actually exists in this codebase. Do NOT invent technologies or c
   outputChannel.appendLine(`Pipeline: ${useMermaid ? 'MERMAID (user choice)' : 'DSL (user choice)'}`);
 
   if (useMermaid) {
-    await runMermaidGeneration(panel, diagramService, enrichedPrompt);
+    await runMermaidGeneration(panel, diagramService, enrichedPrompt, picked.model.family);
   } else {
-    await runDslGeneration(panel, diagramService, enrichedPrompt);
+    await runDslGeneration(panel, diagramService, enrichedPrompt, picked.model.family);
+  }
+}
+
+/** Reveal gallery panel and show a one-time hint after first save */
+function revealGalleryOnFirstSave(): void {
+  // Always focus the gallery so user sees the new diagram appear
+  vscode.commands.executeCommand('excalidrawGallery.focus');
+  // Show a one-time notification (never again after first dismissal)
+  const shownKey = 'excalidraw-copilot.galleryHintShown';
+  if (!_extensionContext?.workspaceState.get<boolean>(shownKey)) {
+    _extensionContext?.workspaceState.update(shownKey, true);
+    vscode.window.showInformationMessage(
+      '📋 Diagram saved! Your diagrams appear in the Excalidraw Diagrams panel in the sidebar.',
+      'Got it'
+    );
+  }
+}
+
+// Auto-save diagram after generation — returns the saved URI
+async function autoSaveDiagram(panel: ExcalidrawPanel, pipeline: 'dsl' | 'mermaid', prompt: string, model?: string, graph?: any, targetUri?: vscode.Uri): Promise<vscode.Uri | undefined> {
+  try {
+    const state = await panel.getCanvasState();
+    if (!state.elements || state.elements.length === 0) { return undefined; }
+    const metadata: DiagramMetadata = {
+      prompt: prompt.slice(0, 200),
+      pipeline,
+      model,
+      timestamp: Date.now(),
+      nodeCount: state.elements.filter((e: any) => e.type !== 'arrow' && e.type !== 'line' && !e.isDeleted).length,
+      connectionCount: state.elements.filter((e: any) => (e.type === 'arrow' || e.type === 'line') && !e.isDeleted).length,
+    };
+    let uri: vscode.Uri | undefined;
+    if (targetUri) {
+      uri = await diagramStore.saveDiagram(state.elements, state.appState, metadata, targetUri, graph);
+    } else {
+      uri = await diagramStore.autoSave(state.elements, state.appState, metadata, graph);
+    }
+    if (uri) {
+      outputChannel.appendLine(`Auto-saved diagram: ${vscode.workspace.asRelativePath(uri)}`);
+      revealGalleryOnFirstSave();
+    }
+    return uri;
+  } catch (e) {
+    outputChannel.appendLine(`Auto-save failed: ${(e as Error).message}`);
+    return undefined;
+  }
+}
+
+// Auto-save Mermaid diagram — returns the saved URI
+async function autoSaveMermaidDiagram(mermaidSyntax: string, prompt: string, model?: string, targetUri?: vscode.Uri): Promise<vscode.Uri | undefined> {
+  try {
+    const metadata: DiagramMetadata = {
+      prompt: prompt.slice(0, 200),
+      pipeline: 'mermaid',
+      model,
+      timestamp: Date.now(),
+      nodeCount: 0,
+      connectionCount: 0,
+    };
+    let uri: vscode.Uri | undefined;
+    if (targetUri) {
+      uri = await diagramStore.saveMermaid(mermaidSyntax, metadata, targetUri);
+    } else {
+      uri = await diagramStore.autoSaveMermaid(mermaidSyntax, metadata);
+    }
+    if (uri) {
+      outputChannel.appendLine(`Auto-saved Mermaid diagram: ${vscode.workspace.asRelativePath(uri)}`);
+      revealGalleryOnFirstSave();
+    }
+    return uri;
+  } catch (e) {
+    outputChannel.appendLine(`Mermaid auto-save failed: ${(e as Error).message}`);
+    return undefined;
   }
 }
 
 // DSL pipeline — process/recipe diagrams (existing behavior)
-async function runDslGeneration(panel: ExcalidrawPanel, diagramService: SemanticDiagramService, prompt: string): Promise<void> {
+async function runDslGeneration(panel: ExcalidrawPanel, diagramService: SemanticDiagramService, prompt: string, modelFamily?: string): Promise<void> {
   const { layoutGraph } = await import('./layout/engine');
   const { renderToExcalidraw } = await import('./render/shapes');
 
@@ -303,6 +643,7 @@ async function runDslGeneration(panel: ExcalidrawPanel, diagramService: Semantic
   };
 
   let currentGraph: any = null;
+  let initialSaveUri: vscode.Uri | undefined;
 
   await vscode.window.withProgress(
     {
@@ -325,6 +666,10 @@ async function runDslGeneration(panel: ExcalidrawPanel, diagramService: Semantic
         currentGraph = initialResult.graph;
         await renderGraph(currentGraph);
         
+        // Auto-save
+        const savedUri = await autoSaveDiagram(panel, 'dsl', prompt, modelFamily, currentGraph);
+        if (savedUri) { initialSaveUri = savedUri; }
+        
         vscode.window.showInformationMessage(
           `✅ Diagram ready! ${currentGraph.nodes.length} nodes, ${currentGraph.connections.length} connections`
         );
@@ -338,15 +683,16 @@ async function runDslGeneration(panel: ExcalidrawPanel, diagramService: Semantic
     }
   );
 
-  // Feedback loop (DSL path)
+  // Feedback loop (DSL path) — pass saved URI so refinement overwrites same file
   if (currentGraph) {
-    await runFeedbackLoop(panel, diagramService, prompt, currentGraph, renderGraph);
+    await runFeedbackLoop(panel, diagramService, prompt, currentGraph, renderGraph, initialSaveUri);
   }
 }
 
 // Mermaid pipeline — architecture diagrams
-async function runMermaidGeneration(panel: ExcalidrawPanel, diagramService: SemanticDiagramService, prompt: string): Promise<void> {
+async function runMermaidGeneration(panel: ExcalidrawPanel, diagramService: SemanticDiagramService, prompt: string, modelFamily?: string): Promise<void> {
   let currentMermaid: string | null = null;
+  let initialSaveUri: vscode.Uri | undefined;
 
   await vscode.window.withProgress(
     {
@@ -371,6 +717,10 @@ async function runMermaidGeneration(panel: ExcalidrawPanel, diagramService: Sema
         await panel.sendMessage({ type: 'showMermaidPreview', payload: { mermaidSyntax: currentMermaid } } as any);
         await new Promise(resolve => setTimeout(resolve, 500));
         
+        // Auto-save (Mermaid stores syntax directly, not canvas state)
+        const savedUri = await autoSaveMermaidDiagram(currentMermaid, prompt, modelFamily);
+        if (savedUri) { initialSaveUri = savedUri; }
+        
         vscode.window.showInformationMessage('✅ Architecture diagram ready! (Mermaid pipeline)');
         
       } catch (e) {
@@ -382,9 +732,9 @@ async function runMermaidGeneration(panel: ExcalidrawPanel, diagramService: Sema
     }
   );
 
-  // Feedback loop (Mermaid path)
+  // Feedback loop (Mermaid path) — pass saved URI so refinement overwrites same file
   if (currentMermaid) {
-    await runMermaidFeedbackLoop(panel, diagramService, prompt, currentMermaid);
+    await runMermaidFeedbackLoop(panel, diagramService, prompt, currentMermaid, initialSaveUri);
   }
 }
 
@@ -393,10 +743,12 @@ async function runMermaidFeedbackLoop(
   panel: ExcalidrawPanel,
   diagramService: SemanticDiagramService,
   originalPrompt: string,
-  initialMermaid: string
+  initialMermaid: string,
+  existingUri?: vscode.Uri
 ): Promise<void> {
   let currentMermaid = initialMermaid;
   let iteration = 0;
+  let changed = false;
 
   while (iteration < 10) {
     const feedback = await vscode.window.showInputBox({
@@ -412,6 +764,7 @@ async function runMermaidFeedbackLoop(
     }
 
     iteration++;
+    changed = true;
     outputChannel.appendLine(`\n=== Mermaid Feedback #${iteration}: ${feedback} ===`);
 
     await vscode.window.withProgress(
@@ -445,13 +798,18 @@ async function runMermaidFeedbackLoop(
     );
   }
 
+  // Auto-save refined result (overwrite if we have an existing URI)
+  if (changed) {
+    autoSaveMermaidDiagram(currentMermaid, originalPrompt, undefined, existingUri);
+  }
+
   // Offer re-entry after the loop ends
   const reopen = await vscode.window.showInformationMessage(
     '✅ Mermaid diagram finalized. Want to refine further?',
     'Continue Refining'
   );
   if (reopen === 'Continue Refining') {
-    await runMermaidFeedbackLoop(panel, diagramService, originalPrompt, currentMermaid);
+    await runMermaidFeedbackLoop(panel, diagramService, originalPrompt, currentMermaid, existingUri);
   }
 }
 
@@ -461,10 +819,12 @@ async function runFeedbackLoop(
   diagramService: SemanticDiagramService,
   originalPrompt: string,
   initialGraph: any,
-  renderGraph: (graph: any) => Promise<any>
+  renderGraph: (graph: any) => Promise<any>,
+  existingUri?: vscode.Uri
 ): Promise<void> {
   let currentGraph = initialGraph;
   let iteration = 0;
+  let changed = false;
 
   while (iteration < 10) {
     const feedback = await vscode.window.showInputBox({
@@ -480,6 +840,7 @@ async function runFeedbackLoop(
     }
 
     iteration++;
+    changed = true;
     outputChannel.appendLine(`\n=== Feedback #${iteration}: ${feedback} ===`);
 
     await vscode.window.withProgress(
@@ -516,13 +877,18 @@ async function runFeedbackLoop(
     );
   }
 
+  // Auto-save refined result (overwrite if we have an existing URI)
+  if (changed) {
+    autoSaveDiagram(panel, 'dsl', originalPrompt, undefined, currentGraph, existingUri);
+  }
+
   // Offer re-entry after the loop ends
   const reopen = await vscode.window.showInformationMessage(
     '✅ Diagram finalized. Want to refine further?',
     'Continue Refining'
   );
   if (reopen === 'Continue Refining') {
-    await runFeedbackLoop(panel, diagramService, originalPrompt, currentGraph, renderGraph);
+    await runFeedbackLoop(panel, diagramService, originalPrompt, currentGraph, renderGraph, existingUri);
   }
 }
 

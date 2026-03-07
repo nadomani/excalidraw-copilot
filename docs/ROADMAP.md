@@ -36,23 +36,19 @@ The 30–40 second blank wait while the LLM generates is a UX killer. Users thin
 
 ---
 
-## 🥉 3. Save & Reopen as `.excalidraw` Files
+## ✅ 3. Save & Reopen as `.excalidraw` Files — DONE
 
 **Impact:** 🔥🔥🔥🔥 — Turns "cool demo" into "daily tool"  
-**Effort:** Small (0.5–1 day)
+**Status:** Implemented in v0.5.0
 
-### Why
-Currently, diagrams are ephemeral — close the tab and they're gone. Nobody builds a habit around a tool that loses their work. If diagrams save as `.excalidraw` files, users can:
-- Version control diagrams alongside code
-- Reopen and edit them later
-- Share with teammates
-- Open in excalidraw.com
-
-### What
-- Auto-save generated diagrams as `.excalidraw` files in the workspace
-- Add "Save Diagram" and "Open Diagram" commands
-- Support the standard Excalidraw JSON format
-- Register as file editor for `.excalidraw` files
+### What was built
+- Auto-save to `.excalidraw-copilot/` folder after every generation and refinement
+- `excalidraw-copilot.autoSave` setting (default: true)
+- DiagramStore module: save/load/list/delete/rename `.excalidraw` files
+- `.excalidraw` files store elements, graph (DSL), mermaidSyntax, and metadata
+- Custom editor: double-click `.excalidraw` files to open in Excalidraw panel
+- Git integration: asks once whether to add `.excalidraw-copilot/` to `.gitignore`
+- Filenames: `{prompt-slug}_{timestamp}.excalidraw`
 
 ---
 
@@ -72,20 +68,19 @@ Currently, diagrams are ephemeral — close the tab and they're gone. Nobody bui
 
 ---
 
-## 5. Diagram Gallery (Session History)
+## ✅ 5. Diagram Gallery (Session History) — DONE
 
 **Impact:** 🔥🔥🔥 — Drives retention and daily use  
-**Effort:** Medium (1–2 days)
+**Status:** Implemented in v0.5.0
 
-### Why
-After a week of use, users have generated 20 diagrams and can't find any of them. A gallery of past diagrams (with thumbnails) turns one-time users into daily users. Combined with `.excalidraw` file saving, this becomes a visual knowledge base.
-
-### What
-- Side panel showing thumbnail previews of recent diagrams
-- Store diagrams in workspace `.excalidraw-copilot/` folder
-- Click to reopen any past diagram
-- Search/filter by prompt text
-- "Regenerate" button to re-run with a different model
+### What was built
+- Dedicated Activity Bar panel ("Excalidraw Diagrams") with file watcher
+- Gallery lists all `.excalidraw` files with prompt, pipeline badge, and relative timestamp
+- Gallery actions: Open, Delete, Rename, Reveal in Explorer, Refine Diagram
+- Gallery auto-reveals after first save with one-time notification
+- Refine saved diagrams: opens diagram + popup "Any changes?" (DSL uses stored graph, Mermaid uses stored syntax)
+- Gallery refinement saves as `-refined` copy (original preserved)
+- "Refine Diagram" context menu option opens diagram + focuses chat
 
 ---
 
@@ -95,6 +90,6 @@ After a week of use, users have generated 20 diagrams and can't find any of them
 |-------|---------|---------------|
 | **Done** | Chat Participant | Biggest reach — puts us in front of every Copilot user |
 | **Done** | Code selection | Unique feature for marketing differentiation |
-| **Now** | Save as `.excalidraw` | Foundation for gallery + retention |
-| **Then** | Streaming rendering | Polish that drives sharing and word-of-mouth |
-| **Later** | Diagram gallery | Builds on saved files, drives daily use |
+| **Done** | Save as `.excalidraw` | Foundation for gallery + retention |
+| **Done** | Diagram gallery | Builds on saved files, drives daily use |
+| **Next** | Streaming rendering | Polish that drives sharing and word-of-mouth |
