@@ -42,7 +42,7 @@ export async function analyzeFolder(folderUri: vscode.Uri): Promise<string> {
   const analysis: string[] = [];
   
   // Find source and config files
-  const sourcePatterns = ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx', '**/*.py', '**/*.cs', '**/*.java', '**/*.go'];
+  const sourcePatterns = ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx', '**/*.py', '**/*.cs', '**/*.java', '**/*.go', '**/*.rs', '**/*.rb', '**/*.php', '**/*.kt', '**/*.swift', '**/*.c', '**/*.cpp', '**/*.h', '**/*hpp'];
   const configPatterns = ['**/package.json', '**/requirements.txt', '**/go.mod', '**/*.csproj', '**/pom.xml', '**/Dockerfile', '**/docker-compose.yml', '**/.env.example'];
   const excludePattern = '{**/node_modules/**,**/dist/**,**/build/**,**/.git/**,**/coverage/**,**/__pycache__/**,**/vendor/**}';
 
